@@ -106,6 +106,47 @@ export default function RegistroPublicoPage() {
     )
   }
 
+  if (response && response.success) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-6 text-center font-sans">
+        <div className="bg-white rounded-3xl border border-slate-200 p-8 sm:p-12 shadow-xl max-w-lg w-full flex flex-col items-center gap-6 transform transition-all duration-500 animate-in fade-in zoom-in-95">
+          <div className="w-16 h-16 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center shadow-inner">
+            <svg className="w-8 h-8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="20 6 9 17 4 12" />
+            </svg>
+          </div>
+          <div className="space-y-2">
+            <h2 className="text-2xl font-black text-slate-900 tracking-tight sm:text-3xl">
+              ¡Registro Recibido!
+            </h2>
+            <p className="text-sm font-semibold text-slate-500 max-w-sm mx-auto leading-relaxed">
+              {response.message || 'Tu solicitud ha sido enviada al panel administrativo y será revisada en breve.'}
+            </p>
+          </div>
+          
+          <div className="border-t border-slate-100 pt-6 w-full text-left space-y-3">
+            <div className="bg-slate-50 p-4 rounded-2xl border border-slate-150 flex gap-3 items-start">
+              <div className="w-5 h-5 rounded-md bg-blue-50 text-blue-600 flex items-center justify-center text-[10px] font-black mt-0.5">i</div>
+              <p className="text-[11px] font-semibold text-slate-600 leading-normal">
+                <strong>¿Qué sigue?</strong> Tu expediente se encuentra en estado <strong>Por Verificar</strong>. Una vez que el personal administrativo del Colegio valide tu pago y tus documentos digitalizados, recibirás la confirmación y pasarás al directorio activo.
+              </p>
+            </div>
+          </div>
+
+          <button
+            onClick={() => {
+              setResponse(null)
+              reset()
+            }}
+            className="w-full h-11 rounded-xl bg-slate-950 hover:bg-slate-900 text-white font-bold text-sm tracking-wide shadow-md transition-all cursor-pointer flex items-center justify-center gap-2 mt-2"
+          >
+            Entendido
+          </button>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="min-h-screen bg-slate-50 py-12 px-4 sm:px-6 lg:px-8 font-sans relative">
       <div className="max-w-4xl mx-auto">
@@ -122,20 +163,14 @@ export default function RegistroPublicoPage() {
           </p>
         </div>
 
-        {/* Alerts */}
-        {response && (
-          <div className={`mb-8 p-4 rounded-xl border flex items-start gap-3 shadow-sm ${
-            response.success 
-              ? 'bg-emerald-50 border-emerald-200 text-emerald-950' 
-              : 'bg-red-50 border-red-200 text-red-950'
-          }`}>
-            <span className="text-lg leading-none">{response.success ? '✅' : '⚠️'}</span>
+        {/* Alerts (sólo para errores) */}
+        {response && !response.success && (
+          <div className="mb-8 p-4 rounded-xl border border-red-200 bg-red-50 text-red-950 flex items-start gap-3 shadow-sm">
+            <span className="text-lg leading-none">⚠️</span>
             <div className="flex-1">
-              <h4 className="text-sm font-bold block">
-                {response.success ? '¡Registro Exitoso!' : 'Error de Registro'}
-              </h4>
+              <h4 className="text-sm font-bold block">Error de Registro</h4>
               <p className="text-xs font-semibold mt-1 leading-relaxed">
-                {response.success ? response.message : response.error}
+                {response.error}
               </p>
             </div>
           </div>
