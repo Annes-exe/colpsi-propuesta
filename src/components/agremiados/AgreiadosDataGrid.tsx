@@ -20,7 +20,7 @@ export function AgreiadosDataGrid() {
   const [page, setPage] = useState(0)
   const [search, setSearch] = useState('')
   const [loading, setLoading] = useState(true)
-  const [filtroSolvencia, setFiltroSolvencia] = useState<'todos' | 'solventes' | 'morosos'>('todos')
+  const [filtroSolvencia, setFiltroSolvencia] = useState<'todos' | 'solventes' | 'pendientes'>('todos')
   const searchRef = useRef<HTMLInputElement>(null)
   const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -52,7 +52,7 @@ export function AgreiadosDataGrid() {
       // Filtrar por estado de solvencia en cliente
       const filtered = filtro === 'solventes'
         ? mapped.filter(r => r.semaforo === 'verde')
-        : filtro === 'morosos'
+        : filtro === 'pendientes'
         ? mapped.filter(r => r.semaforo === 'rojo')
         : mapped
 
@@ -96,7 +96,7 @@ export function AgreiadosDataGrid() {
         <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
           {/* Filtro Solvencia */}
           <div style={{ display: 'flex', gap: 4, background: '#f1f5f9', borderRadius: 8, padding: 3 }}>
-            {(['todos', 'solventes', 'morosos'] as const).map((f) => (
+            {(['todos', 'solventes', 'pendientes'] as const).map((f) => (
               <button
                 key={f}
                 onClick={() => { setFiltroSolvencia(f); setPage(0) }}
@@ -110,12 +110,12 @@ export function AgreiadosDataGrid() {
                   transition: 'all 0.15s',
                   background: filtroSolvencia === f ? '#fff' : 'transparent',
                   color: filtroSolvencia === f
-                    ? f === 'solventes' ? '#16a34a' : f === 'morosos' ? '#dc2626' : '#0f172a'
+                    ? f === 'solventes' ? '#16a34a' : f === 'pendientes' ? '#dc2626' : '#0f172a'
                     : '#64748b',
                   boxShadow: filtroSolvencia === f ? '0 1px 4px rgba(0,0,0,0.08)' : 'none',
                 }}
               >
-                {f === 'todos' ? 'Todos' : f === 'solventes' ? '🟢 Solventes' : '🔴 Morosos'}
+                {f === 'todos' ? 'Todos' : f === 'solventes' ? '🟢 Solventes' : '🔴 Pendientes'}
               </button>
             ))}
           </div>
@@ -198,7 +198,7 @@ export function AgreiadosDataGrid() {
                     {row.semaforo === 'verde' ? (
                       <span className="badge-solvente">Solvente</span>
                     ) : (
-                      <span className="badge-moroso">Moroso</span>
+                      <span className="badge-pendiente">Pendiente</span>
                     )}
                   </td>
                   <td style={{ textAlign: 'right' }}>

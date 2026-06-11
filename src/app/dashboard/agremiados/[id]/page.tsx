@@ -83,7 +83,7 @@ export default async function AgreiadoDetailPage({ params }: Props) {
                 {deuda.semaforo === 'verde' ? (
                   <span className="badge-solvente">Solvente</span>
                 ) : (
-                  <span className="badge-moroso">Moroso</span>
+                  <span className="badge-pendiente">Pendiente</span>
                 )}
               </div>
             </div>
@@ -179,7 +179,7 @@ export default async function AgreiadoDetailPage({ params }: Props) {
         <div>
           <div className="deuda-card">
             <div className="deuda-card-title">Estado de Deuda</div>
-            <div className={`deuda-amount ${deuda.semaforo}`}>
+            <div className={`deuda-amount ${deuda.esSolvente ? 'solvente' : 'pendiente'}`}>
               {deuda.esSolvente ? '$0.00' : formatUSD(deuda.totalUSD)}
             </div>
             {!deuda.esSolvente && (

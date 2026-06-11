@@ -23,8 +23,8 @@
   /* Solvencia Semáforo */
   --solvente-bg: #dcfce7;
   --solvente-text: #166534;
-  --moroso-bg: #fee2e2;
-  --moroso-text: #991b1b;
+  --pendiente-bg: #fee2e2;
+  --pendiente-text: #991b1b;
 }
 
 @theme inline {
@@ -508,7 +508,7 @@ table.data-table tbody tr:last-child td {
   color: var(--solvente-text);
 }
 
-.badge-moroso {
+.badge-pendiente {
   display: inline-flex;
   align-items: center;
   gap: 5px;
@@ -516,8 +516,8 @@ table.data-table tbody tr:last-child td {
   border-radius: 20px;
   font-size: 12px;
   font-weight: 600;
-  background: var(--moroso-bg);
-  color: var(--moroso-text);
+  background: var(--pendiente-bg);
+  color: var(--pendiente-text);
 }
 
 .badge-solvente::before {
@@ -529,7 +529,7 @@ table.data-table tbody tr:last-child td {
   flex-shrink: 0;
 }
 
-.badge-moroso::before {
+.badge-pendiente::before {
   content: '';
   width: 6px;
   height: 6px;
@@ -851,7 +851,7 @@ table.data-table tbody tr:last-child td {
 }
 
 .deuda-amount.solvente { color: #4ade80; }
-.deuda-amount.moroso { color: #f87171; }
+.deuda-amount.pendiente { color: #f87171; }
 
 .deuda-breakdown {
   margin-top: 12px;

@@ -81,7 +81,7 @@ export default async function DashboardPage() {
           </div>
         </div>
 
-        {/* Morosos */}
+        {/* Pendientes */}
         <div className="stat-card">
           <div className="stat-card-icon red">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -91,7 +91,7 @@ export default async function DashboardPage() {
             </svg>
           </div>
           <div>
-            <div className="stat-card-label">Morosos</div>
+            <div className="stat-card-label">Pendientes</div>
             <div className="stat-card-value" style={{ color: '#dc2626' }}>{stats.morosos.toLocaleString()}</div>
             <div className="stat-card-sub">{100 - stats.porcentajeSolventes}% con deuda pendiente</div>
           </div>
