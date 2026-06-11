@@ -56,6 +56,37 @@ const T = {
   sectionTitle: { fontSize: 11, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase' as const, letterSpacing: '0.08em', paddingBottom: 10, borderBottom: '1px solid #f1f5f9', marginBottom: 2 },
 } as const
 
+// Helper para formatear entrada de VES
+function formatVESInput(value: string): string {
+  // Elimina cualquier carácter que no sea número o punto
+  let clean = value.replace(/[^0-9.]/g, '')
+
+  // Si hay más de un punto, dejamos solo el primero
+  const parts = clean.split('.')
+  if (parts.length > 2) {
+    clean = parts[0] + '.' + parts.slice(1).join('')
+  }
+
+  let [integer, decimal] = clean.split('.')
+
+  // Evitar ceros a la izquierda inválidos
+  if (integer && integer.length > 1 && integer.startsWith('0')) {
+    integer = integer.replace(/^0+/, '')
+    if (integer === '') integer = '0'
+  }
+
+  // Formatear parte entera con comas
+  if (integer) {
+    integer = integer.replace(/\B(?=(\d{3})+(?!\d))/g, ',')
+  }
+
+  if (decimal !== undefined) {
+    return `${integer || '0'}.${decimal.slice(0, 2)}`
+  }
+
+  return integer || ''
+}
+
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export function FormularioPago({ agremiado_id, nombreCompleto, deuda, onSuccess, onClose }: FormularioPagoProps) {
@@ -115,9 +146,11 @@ export function FormularioPago({ agremiado_id, nombreCompleto, deuda, onSuccess,
 
   // ── Monto esperado según años elegidos ────────────────────────────────────
   const montoEsperadoUSD = (() => {
-    const tieneAniosPre = aniosSeleccionados.some((a) => a < 2023)
     const cantPost = aniosSeleccionados.filter((a) => a >= 2023).length
-    return (tieneAniosPre && !deuda.deudaPrePagada ? MONTO_PRE_BLOCK_USD : 0) + cantPost * MONTO_POR_ANIO_POST_USD
+    if (deuda.tarifaNivelacionAplicada && cantPost === deuda.aniosPendientesPost.length) {
+      return 80.00
+    }
+    return cantPost * MONTO_POR_ANIO_POST_USD
   })()
 
   // ── Toggle año individual ─────────────────────────────────────────────────
@@ -128,16 +161,7 @@ export function FormularioPago({ agremiado_id, nombreCompleto, deuda, onSuccess,
       { shouldValidate: true })
   }
 
-  // ── Toggle bloque Pre-2023 ────────────────────────────────────────────────
-  const togglePreBloque = () => {
-    const todos = deuda.aniosPendientesPre.every(a => aniosSeleccionados.includes(a))
-    if (todos) {
-      setValue('anios_correspondientes', aniosSeleccionados.filter(a => !deuda.aniosPendientesPre.includes(a)), { shouldValidate: true })
-    } else {
-      const sinPre = aniosSeleccionados.filter(a => !deuda.aniosPendientesPre.includes(a))
-      setValue('anios_correspondientes', [...sinPre, ...deuda.aniosPendientesPre], { shouldValidate: true })
-    }
-  }
+
 
   // ── Submit ─────────────────────────────────────────────────────────────────
   const onSubmit = (data: PagoInput) => {
@@ -156,7 +180,6 @@ export function FormularioPago({ agremiado_id, nombreCompleto, deuda, onSuccess,
   }
 
   const isLoading = isPending || isSubmitting
-  const preSeleccionado = deuda.aniosPendientesPre.some(a => aniosSeleccionados.includes(a))
   const montoMatch = montoEsperadoUSD > 0 && Math.abs(montoUSD - montoEsperadoUSD) < 1
 
   // ── Input style helper ─────────────────────────────────────────────────────
@@ -374,14 +397,47 @@ export function FormularioPago({ agremiado_id, nombreCompleto, deuda, onSuccess,
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
               <div style={T.field}>
                 <label htmlFor="fp-ves" style={T.label}>Monto en Bolívares (VES)</label>
-                <input
-                  id="fp-ves"
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  placeholder="0.00"
-                  style={inputStyle('ves', !!errors.monto_ves)}
-                  {...register('monto_ves', { valueAsNumber: true })}
+                <Controller
+                  name="monto_ves"
+                  control={control}
+                  render={({ field: { onChange, value } }) => {
+                    const [displayVal, setDisplayVal] = useState(() => {
+                      if (!value || isNaN(value)) return ''
+                      return formatVESInput(String(value))
+                    })
+
+                    useEffect(() => {
+                      const numVal = Number(value) || 0
+                      if (numVal === 0) {
+                        setDisplayVal('')
+                      } else {
+                        const cleanDisplay = parseFloat(displayVal.replace(/,/g, '')) || 0
+                        if (cleanDisplay !== numVal) {
+                          setDisplayVal(formatVESInput(numVal.toFixed(2)))
+                        }
+                      }
+                    }, [value])
+
+                    const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+                      const inputVal = e.target.value
+                      const formatted = formatVESInput(inputVal)
+                      setDisplayVal(formatted)
+
+                      const numericVal = parseFloat(formatted.replace(/,/g, '')) || 0
+                      onChange(numericVal)
+                    }
+
+                    return (
+                      <input
+                        id="fp-ves"
+                        type="text"
+                        placeholder="0.00"
+                        value={displayVal}
+                        onChange={handleInputChange}
+                        style={inputStyle('ves', !!errors.monto_ves)}
+                      />
+                    )
+                  }}
                 />
                 {errors.monto_ves && <span style={T.errorText}>{errors.monto_ves.message}</span>}
               </div>
@@ -419,7 +475,7 @@ export function FormularioPago({ agremiado_id, nombreCompleto, deuda, onSuccess,
               )}
             </div>
 
-            {deuda.aniosPendientesPre.length === 0 && deuda.aniosPendientesPost.length === 0 ? (
+            {deuda.aniosPendientesPost.length === 0 ? (
               <div style={{
                 padding: '16px', borderRadius: 9, background: '#f0fdf4', border: '1px solid #bbf7d0',
                 display: 'flex', alignItems: 'center', gap: 10, fontSize: 13, color: '#15803d', fontWeight: 500,
@@ -429,56 +485,11 @@ export function FormularioPago({ agremiado_id, nombreCompleto, deuda, onSuccess,
               </div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                {/* Bloque Pre-2023 */}
-                {deuda.aniosPendientesPre.length > 0 && (
-                  <div style={{ padding: '12px 14px', borderRadius: 9, border: '1.5px solid #e2e8f0', background: '#fafafa' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-                      <div>
-                        <span style={{ fontSize: 13, fontWeight: 700, color: '#0f172a' }}>Bloque 2010–2022</span>
-                        <span style={{
-                          marginLeft: 8, padding: '2px 8px', borderRadius: 20,
-                          fontSize: 11, fontWeight: 600, background: '#fef9c3', color: '#a16207',
-                        }}>
-                          ${MONTO_PRE_BLOCK_USD} — pago único
-                        </span>
-                      </div>
-                    </div>
-                    <button
-                      type="button"
-                      id="fp-anio-pre"
-                      onClick={togglePreBloque}
-                      style={{
-                        width: '100%', padding: '10px 14px', borderRadius: 8,
-                        border: preSeleccionado ? '2px solid #2563eb' : '2px dashed #cbd5e1',
-                        background: preSeleccionado ? 'linear-gradient(135deg, #eff6ff, #dbeafe)' : '#fff',
-                        color: preSeleccionado ? '#1d4ed8' : '#64748b',
-                        fontSize: 13.5, fontWeight: 700, cursor: 'pointer',
-                        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                        transition: 'all 0.18s', fontFamily: 'inherit',
-                      }}
-                    >
-                      <span>2010–2022 ({deuda.aniosPendientesPre.length} años pendientes)</span>
-                      <span style={{
-                        width: 20, height: 20, borderRadius: 5,
-                        border: preSeleccionado ? '2px solid #2563eb' : '2px solid #cbd5e1',
-                        background: preSeleccionado ? '#2563eb' : 'transparent',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-                      }}>
-                        {preSeleccionado && (
-                          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3.5">
-                            <polyline points="20 6 9 17 4 12" />
-                          </svg>
-                        )}
-                      </span>
-                    </button>
-                  </div>
-                )}
-
                 {/* Bloque Post-2023 */}
                 {deuda.aniosPendientesPost.length > 0 && (
                   <div style={{ padding: '12px 14px', borderRadius: 9, border: '1.5px solid #e2e8f0', background: '#fafafa' }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-                      <span style={{ fontSize: 13, fontWeight: 700, color: '#0f172a' }}>Post-2023</span>
+                      <span style={{ fontSize: 13, fontWeight: 700, color: '#0f172a' }}>Períodos Pendientes</span>
                       <span style={{
                         padding: '2px 8px', borderRadius: 20,
                         fontSize: 11, fontWeight: 600, background: '#ede9fe', color: '#6d28d9',

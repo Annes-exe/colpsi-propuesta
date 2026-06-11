@@ -130,34 +130,34 @@ export default async function DashboardPage() {
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
           <div style={{
             padding: 16,
-            background: '#fef3c7',
-            borderRadius: 10,
-            border: '1px solid #fde68a'
-          }}>
-            <div style={{ fontSize: 12, fontWeight: 700, color: '#92400e', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 8 }}>
-              Bloque Pre-2023 (2010–2022)
-            </div>
-            <div style={{ fontSize: 22, fontWeight: 800, color: '#b45309', fontFamily: 'JetBrains Mono, monospace' }}>
-              $80.00
-            </div>
-            <div style={{ fontSize: 12, color: '#78350f', marginTop: 4 }}>
-              Monto consolidado único si hay algún año pendiente en este bloque
-            </div>
-          </div>
-          <div style={{
-            padding: 16,
             background: '#fee2e2',
             borderRadius: 10,
             border: '1px solid #fecaca'
           }}>
             <div style={{ fontSize: 12, fontWeight: 700, color: '#991b1b', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 8 }}>
-              Post-2023 (2023–Presente)
+              Tarifa Estándar (2023–Presente)
             </div>
             <div style={{ fontSize: 22, fontWeight: 800, color: '#dc2626', fontFamily: 'JetBrains Mono, monospace' }}>
               $20.00 / año
             </div>
             <div style={{ fontSize: 12, color: '#7f1d1d', marginTop: 4 }}>
-              $20 por cada año fiscal individual no cancelado desde 2023
+              Costo por cada año fiscal individual no cancelado (si tiene algún pago previo registrado).
+            </div>
+          </div>
+          <div style={{
+            padding: 16,
+            background: '#fef3c7',
+            borderRadius: 10,
+            border: '1px solid #fde68a'
+          }}>
+            <div style={{ fontSize: 12, fontWeight: 700, color: '#92400e', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 8 }}>
+              Tarifa de Nivelación
+            </div>
+            <div style={{ fontSize: 22, fontWeight: 800, color: '#b45309', fontFamily: 'JetBrains Mono, monospace' }}>
+              $80.00
+            </div>
+            <div style={{ fontSize: 12, color: '#78350f', marginTop: 4 }}>
+              Monto fijo único si el agremiado no ha realizado absolutamente ningún pago desde el año 2023.
             </div>
           </div>
         </div>
@@ -168,12 +168,12 @@ export default async function DashboardPage() {
           borderRadius: 8,
           border: '1px solid #bbf7d0',
           fontSize: 13,
-          color: '#166534'
+          color: '#166534',
+          lineHeight: 1.5
         }}>
-          <strong>Ejemplo:</strong> Agremiado sin solvencias desde 2010 hasta {new Date().getFullYear()} →{' '}
-          <strong style={{ fontFamily: 'JetBrains Mono, monospace' }}>
-            $80 + ({new Date().getFullYear() - 2022} × $20) = ${80 + (new Date().getFullYear() - 2022) * 20}.00
-          </strong>
+          <strong>Ejemplos prácticos:</strong><br />
+          • Agremiado sin ningún pago post-2023 → <strong>Tarifa plana de nivelación: $80.00</strong> para ponerse al día.<br />
+          • Agremiado con algún año pagado (ej: 2023 solvente) que debe 2024, 2025 y 2026 → <strong>3 años × $20 = $60.00</strong>.
         </div>
       </div>
     </div>

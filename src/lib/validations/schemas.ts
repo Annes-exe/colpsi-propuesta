@@ -90,7 +90,7 @@ export const pagoSchema = z.object({
   metodo_pago: z.enum(['transferencia', 'pago_movil', 'efectivo_usd', 'zelle', 'otro']),
   notas: z.string().max(500).optional(),
   anios_correspondientes: z
-    .array(z.number().int().min(2010).max(2099))
+    .array(z.number().int().min(2023).max(2099))
     .min(1, 'Selecciona al menos un año a acreditar'),
 })
 

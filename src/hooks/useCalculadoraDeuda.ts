@@ -1,25 +1,24 @@
 /**
  * useCalculadoraDeuda
  *
- * Motor de cálculo de deuda de solvencias según normativa histórica:
+ * Motor de cálculo de deuda de solvencias a partir de 2023 (año de inicio de cobro):
  *
- * BLOQUE PRE-2023 (2010 – 2022):
- *   Si el agremiado tiene AL MENOS UN año pendiente dentro del rango 2010–2022,
- *   se consolida la deuda completa del bloque en un monto plano único de $80.00.
- *   Si está completamente solvente en este bloque → $0.00.
+ * TARIFA ESTÁNDAR (2023 – año_actual):
+ *   Cada año adeudado tiene un costo de $20.00.
  *
- * BLOQUE POST-2023 (2023 – año_actual):
- *   Por cada año individual no cancelado → $20.00.
- *   La deuda post = N_años_pendientes × $20.00.
- *
- * TOTAL = deudaPreBlock + deudaPostBlock
+ * TARIFA DE NIVELACIÓN:
+ *   Si el agremiado no ha realizado ningún pago desde 2023 (cero años pagados >= 2023),
+ *   se le aplica una tarifa plana única de $80.00 para ponerse al día de golpe.
+ *   Si ya ha cancelado algún año en este rango, se cobra la tarifa estándar de $20.00
+ *   por cada año restante adeudado.
  */
 
 import { useMemo } from 'react'
 
 // ─── Constantes de negocio ───────────────────────────────────────────────────
 
-export const ANIO_INICIO_PRE = 2010
+// A partir de 2023 inicia el cobro de solvencias. Los años anteriores no se cobran.
+export const ANIO_INICIO_PRE = 2023 
 export const ANIO_FIN_PRE = 2022
 export const ANIO_INICIO_POST = 2023
 export const MONTO_PRE_BLOCK_USD = 80.00
@@ -50,6 +49,8 @@ export interface DeudaCalculada {
   totalAniosPeriodo: number
   /** Años completamente solventes */
   aniosSolventes: number[]
+  /** Indica si se aplicó la tarifa de nivelación plana de $80.00 para el bloque post-2023 */
+  tarifaNivelacionAplicada?: boolean
 }
 
 export interface CalculadoraInput {
@@ -88,7 +89,22 @@ export function calcularDeuda(input: CalculadoraInput): DeudaCalculada {
     }
   }
 
-  const deudaPostBlock = aniosPendientesPost.length * MONTO_POR_ANIO_POST_USD
+  // Tarifa de Nivelación:
+  // Si no ha pagado absolutamente nada desde 2023 hasta anioActual, se le aplica un monto fijo de $80.00
+  // para ponerse al día con todos los años adeudados de golpe.
+  // Si ya tiene algún año pagado en ese rango, se multiplica los años restantes adeudados por $20.00.
+  const tienePagosPost = input.aniosSolventes.some((a) => a >= ANIO_INICIO_POST && a <= anioActual)
+  let deudaPostBlock = 0
+  let tarifaNivelacionAplicada = false
+
+  if (aniosPendientesPost.length > 0) {
+    if (!tienePagosPost) {
+      deudaPostBlock = MONTO_PRE_BLOCK_USD // Tarifa plana de $80
+      tarifaNivelacionAplicada = true
+    } else {
+      deudaPostBlock = aniosPendientesPost.length * MONTO_POR_ANIO_POST_USD // $20 por año
+    }
+  }
 
   // ── Totales ──────────────────────────────────────────────────────────────
   const totalUSD = deudaPreBlock + deudaPostBlock
@@ -115,6 +131,7 @@ export function calcularDeuda(input: CalculadoraInput): DeudaCalculada {
     anioActual,
     totalAniosPeriodo,
     aniosSolventes: aniosSolventesEnPeriodo,
+    tarifaNivelacionAplicada,
   }
 }
 

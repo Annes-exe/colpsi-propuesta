@@ -36,7 +36,20 @@ export async function registrarPago(rawData: PagoInput): Promise<ActionResult> {
   }
 
   const data = parsed.data
-  const montoUSD = convertirVESaUSD(data.monto_ves, data.tasa_cambio)
+
+  // Saneamiento estricto: forzar tipos numéricos (float)
+  const montoVesFloat = parseFloat(String(data.monto_ves))
+  const tasaCambioFloat = parseFloat(String(data.tasa_cambio))
+  
+  if (isNaN(montoVesFloat) || montoVesFloat <= 0) {
+    return { success: false, error: 'El monto en Bolívares (VES) debe ser un número positivo.' }
+  }
+  if (isNaN(tasaCambioFloat) || tasaCambioFloat <= 0) {
+    return { success: false, error: 'La tasa de cambio debe ser un número positivo.' }
+  }
+
+  const calculoUSD = convertirVESaUSD(montoVesFloat, tasaCambioFloat)
+  const montoUsdFloat = parseFloat(calculoUSD.toFixed(2))
 
   // ── 2. Verificar sesión activa ─────────────────────────────────────────────
   const supabase = await createClient()
@@ -53,12 +66,11 @@ export async function registrarPago(rawData: PagoInput): Promise<ActionResult> {
   const pagoPayload: PagoInsert = {
     agremiado_id: data.agremiado_id,
     fecha_pago: data.fecha_pago,
-    monto_ves: data.monto_ves,
-    tasa_cambio: data.tasa_cambio,
-    monto_usd: montoUSD,
-    referencia: data.referencia,
+    monto_ves: montoVesFloat,
+    tasa_cambio: tasaCambioFloat,
+    referencia: data.referencia.trim(),
     metodo_pago: data.metodo_pago,
-    notas: data.notas ?? null,
+    notas: data.notas?.trim() || null,
   }
 
   const { data: pago, error: pagoError } = await db
@@ -68,11 +80,14 @@ export async function registrarPago(rawData: PagoInput): Promise<ActionResult> {
     .single()
 
   if (pagoError || !pago) {
-    console.error('[registrarPago] Error insertando pago:', pagoError)
+    console.error('[registrarPago] Error insertando pago en Supabase:', pagoError)
     if (pagoError?.code === '23505') {
       return { success: false, error: 'Ya existe un pago con ese número de referencia.' }
     }
-    return { success: false, error: 'Error al registrar el pago. Intente nuevamente.' }
+    const msgError = pagoError
+      ? `${pagoError.message} (Código: ${pagoError.code}, Detalles: ${pagoError.details || 'Ninguno'})`
+      : 'No se recibió el ID del pago insertado.'
+    return { success: false, error: `Error en base de datos al registrar pago: ${msgError}` }
   }
 
   // ── 4. Insertar solvencias anuales ─────────────────────────────────────────
@@ -87,9 +102,12 @@ export async function registrarPago(rawData: PagoInput): Promise<ActionResult> {
     .insert(solvenciasPayload)
 
   if (solvenciasError) {
-    console.error('[registrarPago] Error insertando solvencias:', solvenciasError)
+    console.error('[registrarPago] Error insertando solvencias en Supabase:', solvenciasError)
     // Rollback manual: eliminar el pago para mantener consistencia
-    await db.from('pagos').delete().eq('id', pago.id)
+    const rollback = await db.from('pagos').delete().eq('id', pago.id)
+    if (rollback.error) {
+      console.error('[registrarPago] Error en rollback al borrar pago:', rollback.error)
+    }
 
     if (solvenciasError.code === '23505') {
       return {
@@ -97,7 +115,8 @@ export async function registrarPago(rawData: PagoInput): Promise<ActionResult> {
         error: 'Uno o más años seleccionados ya tienen solvencia registrada.',
       }
     }
-    return { success: false, error: 'Error al registrar las solvencias. El pago fue revertido.' }
+    const msgError = `${solvenciasError.message} (Código: ${solvenciasError.code}, Detalles: ${solvenciasError.details || 'Ninguno'})`
+    return { success: false, error: `Error en base de datos al registrar solvencias: ${msgError}. El pago fue revertido.` }
   }
 
   // ── 5. Invalidar caché ─────────────────────────────────────────────────────

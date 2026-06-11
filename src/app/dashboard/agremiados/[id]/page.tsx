@@ -120,8 +120,8 @@ export default async function AgreiadoDetailPage({ params }: Props) {
   const nombreCompleto = `${agremiado.nombres ?? ''} ${agremiado.apellidos ?? ''}`
   const iniciales = `${(agremiado.nombres ?? 'A')[0]}${(agremiado.apellidos ?? 'A')[0]}`.toUpperCase()
   const anioActual = new Date().getFullYear()
-  const totalPeriodos = anioActual - 2010 + 1
-  const pctPost = deuda.aniosSolventes.filter(a => a >= 2023).length / (anioActual - 2023 + 1) * 100
+  const totalPeriodos = deuda.totalAniosPeriodo
+  const pctPost = deuda.aniosSolventes.length / totalPeriodos * 100
 
   // ─── Estilos de tokens ─────────────────────────────────────────────────────
   const S = {
@@ -402,23 +402,12 @@ export default async function AgreiadoDetailPage({ params }: Props) {
           <div style={S.card}>
             <div style={{ ...S.microLabel, marginBottom: 14 }}>Progreso de Solvencia</div>
 
-            {/* Pre-2023 */}
-            <div style={{ marginBottom: 14 }}>
-              <div style={S.bloqueHeader}>
-                <span>Bloque 2010–2022</span>
-                <span style={{ fontWeight: 600, color: deuda.deudaPrePagada ? '#16a34a' : '#dc2626', fontSize: 12 }}>
-                  {deuda.deudaPrePagada ? '✓ Pagado' : `Pendiente $${deuda.deudaPreBlock}`}
-                </span>
-              </div>
-              <ProgressBar pct={deuda.deudaPrePagada ? 100 : 0} color="linear-gradient(90deg, #22c55e, #16a34a)" />
-            </div>
-
             {/* Post-2023 */}
             <div>
               <div style={S.bloqueHeader}>
-                <span>Post-2023 ({anioActual})</span>
+                <span>Períodos 2023–{anioActual}</span>
                 <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 12, color: '#475569' }}>
-                  {deuda.aniosSolventes.filter(a => a >= 2023).length}/{anioActual - 2023 + 1} años
+                  {deuda.aniosSolventes.length}/{totalPeriodos} años
                 </span>
               </div>
               <ProgressBar pct={pctPost} color="linear-gradient(90deg, #22c55e, #16a34a)" />
@@ -428,7 +417,7 @@ export default async function AgreiadoDetailPage({ params }: Props) {
           {/* Años pendientes */}
           {deuda.aniosPendientesPost.length > 0 && (
             <div style={S.card}>
-              <div style={S.microLabel}>Años pendientes Post-2023</div>
+              <div style={S.microLabel}>Años pendientes</div>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
                 {deuda.aniosPendientesPost.map(a => <AnioTag key={a} anio={a} tipo="pendiente" />)}
               </div>
