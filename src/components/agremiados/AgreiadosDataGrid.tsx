@@ -31,6 +31,7 @@ export function AgreiadosDataGrid() {
       let query = (supabase as any)
         .from('vista_solvencia_agremiados')
         .select('*', { count: 'exact' })
+        .neq('estado_cuenta', 'por_verificar')
 
       // Búsqueda por cédula o FPV (ultra-rápida por índice)
       if (q.trim()) {

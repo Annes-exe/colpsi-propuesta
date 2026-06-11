@@ -33,6 +33,7 @@ export type Database = {
           cedula_digitalizada: string | null
           rif_digitalizado: string | null
           titulo_graduacion: string | null
+          estado_cuenta: string | null
           created_at: string | null
           updated_at: string | null
         }
@@ -53,6 +54,7 @@ export type Database = {
           cedula_digitalizada?: string | null
           rif_digitalizado?: string | null
           titulo_graduacion?: string | null
+          estado_cuenta?: string | null
           created_at?: string | null
           updated_at?: string | null
         }
@@ -73,6 +75,7 @@ export type Database = {
           cedula_digitalizada?: string | null
           rif_digitalizado?: string | null
           titulo_graduacion?: string | null
+          estado_cuenta?: string | null
           updated_at?: string | null
         }
         Relationships: []
@@ -216,6 +219,7 @@ export type Database = {
           cedula_digitalizada: string | null
           rif_digitalizado: string | null
           titulo_graduacion: string | null
+          estado_cuenta: string | null
           has_paid_inscription: boolean | null
           meses_custodia_pagados: string[] | null
           anios_solventes: number[] | null

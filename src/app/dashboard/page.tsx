@@ -9,15 +9,17 @@ export const metadata: Metadata = { title: 'Dashboard' }
 async function getStats() {
   const supabase = await createClient()
 
-  const [totalResult, solvenciasResult, pagosResult] = await Promise.all([
-    supabase.from('agremiados').select('*', { count: 'exact', head: true }),
-    (supabase as any).from('vista_solvencia_agremiados').select('anios_solventes') as Promise<{ data: Pick<VistaSolvencia, 'anios_solventes'>[] | null }>,
+  const [totalResult, solvenciasResult, pagosResult, pendingApprovalsResult] = await Promise.all([
+    supabase.from('agremiados').select('*', { count: 'exact', head: true }).neq('estado_cuenta', 'por_verificar'),
+    (supabase as any).from('vista_solvencia_agremiados').select('anios_solventes').neq('estado_cuenta', 'por_verificar') as Promise<{ data: Pick<VistaSolvencia, 'anios_solventes'>[] | null }>,
     supabase.from('pagos').select('fecha_pago, monto_usd'),
+    supabase.from('agremiados').select('*', { count: 'exact', head: true }).eq('estado_cuenta', 'por_verificar'),
   ])
 
   const totalAgremiados = totalResult.count ?? 0
   const solvencias = solvenciasResult.data ?? []
   const pagos = pagosResult.data ?? []
+  const pendingApprovals = pendingApprovalsResult.count ?? 0
 
   let solventes = 0
   let morosos = 0
@@ -71,6 +73,7 @@ async function getStats() {
     porcentajeSolventes: totalAgremiados ? Math.round((solventes / totalAgremiados) * 100) : 0,
     chartData,
     isDemoData,
+    pendingApprovals,
   }
 }
 
@@ -95,7 +98,7 @@ export default async function DashboardPage() {
       </div>
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-5">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-5">
         {/* Total Agremiados */}
         <div className="bg-white p-5 rounded-2xl border border-slate-200 flex items-center gap-4 hover:shadow-xs transition-shadow">
           <div className="w-12 h-12 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center flex-shrink-0">
@@ -108,7 +111,7 @@ export default async function DashboardPage() {
           <div>
             <div className="text-xs font-bold text-slate-400 uppercase tracking-wide">Total Agremiados</div>
             <div className="text-2xl font-extrabold text-slate-950 font-mono mt-0.5">{stats.totalAgremiados.toLocaleString()}</div>
-            <div className="text-[10px] text-slate-400 font-medium">Agremiados registrados</div>
+            <div className="text-[10px] text-slate-400 font-medium">Agremiados activos/morosos</div>
           </div>
         </div>
 
@@ -122,7 +125,7 @@ export default async function DashboardPage() {
           <div>
             <div className="text-xs font-bold text-slate-400 uppercase tracking-wide">Solventes</div>
             <div className="text-2xl font-extrabold text-emerald-600 font-mono mt-0.5">{stats.solventes.toLocaleString()}</div>
-            <div className="text-[10px] text-slate-400 font-medium">{stats.porcentajeSolventes}% del total general</div>
+            <div className="text-[10px] text-slate-400 font-medium">{stats.porcentajeSolventes}% del total activo</div>
           </div>
         </div>
 
@@ -171,6 +174,32 @@ export default async function DashboardPage() {
             </div>
           </div>
         </div>
+
+        {/* Solicitudes Pendientes (Aprobaciones) */}
+        <Link
+          href="/dashboard/aprobaciones"
+          className="bg-white p-5 rounded-2xl border border-slate-200 flex items-center gap-4 hover:shadow-xs hover:border-amber-300 transition-all group"
+        >
+          <div className={`w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 ${
+            stats.pendingApprovals > 0
+              ? 'bg-amber-50 text-amber-600 animate-pulse border border-amber-200'
+              : 'bg-slate-50 text-slate-400'
+          }`}>
+            <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M9 12l2 2 4-4" />
+              <circle cx="12" cy="12" r="10" />
+            </svg>
+          </div>
+          <div>
+            <div className="text-xs font-bold text-slate-400 uppercase tracking-wide">Por Verificar</div>
+            <div className={`text-2xl font-extrabold font-mono mt-0.5 ${
+              stats.pendingApprovals > 0 ? 'text-amber-600' : 'text-slate-500'
+            }`}>
+              {stats.pendingApprovals.toLocaleString()}
+            </div>
+            <div className="text-[10px] text-slate-400 font-medium">Revisión requerida</div>
+          </div>
+        </Link>
       </div>
 
       {/* Charts Section */}

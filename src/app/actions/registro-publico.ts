@@ -121,7 +121,8 @@ export async function registrarAgremiadoPublico(formData: FormData): Promise<Act
         planilla_fpv: urls.planilla_fpv,
         cedula_digitalizada: urls.cedula_digitalizada,
         rif_digitalizado: urls.rif_digitalizado,
-        titulo_graduacion: urls.titulo_graduacion
+        titulo_graduacion: urls.titulo_graduacion,
+        estado_cuenta: 'por_verificar'
       })
       .select('id')
       .single()

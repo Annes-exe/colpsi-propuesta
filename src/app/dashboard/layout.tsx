@@ -30,9 +30,15 @@ export default async function DashboardLayout({
 
   const profile = profileResult.data as Pick<Profile, 'username' | 'full_name' | 'role'> | null
 
+  // Count pending approvals
+  const { count: pendingCount } = await supabase
+    .from('agremiados')
+    .select('*', { count: 'exact', head: true })
+    .eq('estado_cuenta', 'por_verificar')
+
   return (
     <div className="app-shell">
-      <Sidebar />
+      <Sidebar pendingCount={pendingCount || 0} />
       <div className="main-content">
         {/* Topbar */}
         <header className="topbar">
