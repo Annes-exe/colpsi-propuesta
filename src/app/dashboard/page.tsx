@@ -11,7 +11,9 @@ async function getStats() {
 
   const [totalResult, solvenciasResult, pagosResult, pendingApprovalsResult] = await Promise.all([
     supabase.from('agremiados').select('*', { count: 'exact', head: true }).neq('estado_cuenta', 'por_verificar'),
-    (supabase as any).from('vista_solvencia_agremiados').select('anios_solventes').neq('estado_cuenta', 'por_verificar') as Promise<{ data: Pick<VistaSolvencia, 'anios_solventes'>[] | null }>,
+    (supabase as any).from('vista_solvencia_agremiados')
+      .select('anios_solventes, fecha_inscripcion, fecha_recepcion_titulo, has_paid_inscription, meses_custodia_pagados')
+      .neq('estado_cuenta', 'por_verificar') as Promise<{ data: Pick<VistaSolvencia, 'anios_solventes' | 'fecha_inscripcion' | 'fecha_recepcion_titulo' | 'has_paid_inscription' | 'meses_custodia_pagados'>[] | null }>,
     supabase.from('pagos').select('fecha_pago, monto_usd'),
     supabase.from('agremiados').select('*', { count: 'exact', head: true }).eq('estado_cuenta', 'por_verificar'),
   ])
@@ -25,7 +27,13 @@ async function getStats() {
   let morosos = 0
 
   for (const row of solvencias) {
-    const { esSolvente } = calcularDeuda({ aniosSolventes: row.anios_solventes ?? [] })
+    const { esSolvente } = calcularDeuda({
+      aniosSolventes: row.anios_solventes ?? [],
+      fechaInscripcion: row.fecha_inscripcion ?? undefined,
+      fechaRecepcionTitulo: row.fecha_recepcion_titulo ?? null,
+      hasPaidInscription: row.has_paid_inscription ?? false,
+      mesesCustodiaPagados: row.meses_custodia_pagados ?? [],
+    })
     if (esSolvente) solventes++
     else morosos++
   }
