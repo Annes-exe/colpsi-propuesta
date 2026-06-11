@@ -31,12 +31,20 @@ export interface DeudaCalculada {
   aniosPendientesPre: number[]
   /** Monto del bloque pre-2023: 0 o 80 */
   deudaPreBlock: number
-  /** Deuda del bloque pre-2023 ya pagada */
+  /** Deuda del bloque pre-2522 ya pagada */
   deudaPrePagada: boolean
   /** Años del bloque post-2023 que faltan (2023–anioActual) */
   aniosPendientesPost: number[]
   /** Monto del bloque post-2023: N × $20 */
   deudaPostBlock: number
+  /** Deuda de inscripción: $30 si no ha pagado, $0 si ya pagó */
+  deudaInscripcion: number
+  /** Deuda de custodia: N meses pendientes × $5 */
+  deudaCustodia: number
+  /** Listado de meses pendientes de custodia ("YYYY-MM") */
+  mesesPendientesCustodia: string[]
+  /** Si ha pagado la inscripción y es considerado agremiado activo */
+  esAgremiadoActivo: boolean
   /** Deuda total en USD */
   totalUSD: number
   /** El agremiado está completamente solvente */
@@ -56,6 +64,10 @@ export interface DeudaCalculada {
 export interface CalculadoraInput {
   /** Array de años por los que el agremiado YA tiene solvencia registrada */
   aniosSolventes: number[]
+  fechaInscripcion?: string
+  fechaRecepcionTitulo?: string | null
+  mesesCustodiaPagados?: string[]
+  hasPaidInscription?: boolean
   /**
    * Año fiscal actual a considerar. Por defecto: año del sistema.
    * Útil para pruebas unitarias o cálculos retroactivos.
@@ -82,8 +94,21 @@ export function calcularDeuda(input: CalculadoraInput): DeudaCalculada {
   const deudaPrePagada = aniosPendientesPre.length === 0
 
   // ── Bloque POST-2023 ─────────────────────────────────────────────────────
+  let yearOfInscription = ANIO_INICIO_POST
+  if (input.fechaInscripcion) {
+    try {
+      const parsedYear = new Date(input.fechaInscripcion + 'T00:00:00').getFullYear()
+      if (!isNaN(parsedYear)) {
+        yearOfInscription = parsedYear
+      }
+    } catch (e) {
+      console.error('Error parsing fechaInscripcion:', e)
+    }
+  }
+  const anioInicioPost = Math.max(ANIO_INICIO_POST, yearOfInscription)
+
   const aniosPendientesPost: number[] = []
-  for (let anio = ANIO_INICIO_POST; anio <= anioActual; anio++) {
+  for (let anio = anioInicioPost; anio <= anioActual; anio++) {
     if (!solventes.has(anio)) {
       aniosPendientesPost.push(anio)
     }
@@ -93,12 +118,13 @@ export function calcularDeuda(input: CalculadoraInput): DeudaCalculada {
   // Si no ha pagado absolutamente nada desde 2023 hasta anioActual, se le aplica un monto fijo de $80.00
   // para ponerse al día con todos los años adeudados de golpe.
   // Si ya tiene algún año pagado en ese rango, se multiplica los años restantes adeudados por $20.00.
-  const tienePagosPost = input.aniosSolventes.some((a) => a >= ANIO_INICIO_POST && a <= anioActual)
+  const tienePagosPost = input.aniosSolventes.some((a) => a >= anioInicioPost && a <= anioActual)
   let deudaPostBlock = 0
   let tarifaNivelacionAplicada = false
 
   if (aniosPendientesPost.length > 0) {
-    if (!tienePagosPost) {
+    // La tarifa de nivelación solo aplica si no tiene pagos y el costo acumulado sería >= $80
+    if (!tienePagosPost && (aniosPendientesPost.length * MONTO_POR_ANIO_POST_USD >= MONTO_PRE_BLOCK_USD)) {
       deudaPostBlock = MONTO_PRE_BLOCK_USD // Tarifa plana de $80
       tarifaNivelacionAplicada = true
     } else {
@@ -106,17 +132,68 @@ export function calcularDeuda(input: CalculadoraInput): DeudaCalculada {
     }
   }
 
+  // ── Inscripción ──────────────────────────────────────────────────────────
+  // Si es un agremiado "viejo" (inscrito antes de 2023), no se le cobra inscripción.
+  // Si es un agremiado "nuevo" (desde 2023), se requiere pago de inscripción.
+  const isNuevo = input.fechaInscripcion
+    ? new Date(input.fechaInscripcion + 'T00:00:00').getFullYear() >= 2023
+    : true
+
+  const esAgremiadoActivo = isNuevo
+    ? (input.hasPaidInscription ?? false)
+    : true
+
+  const deudaInscripcion = esAgremiadoActivo ? 0 : 30.00
+
+  // ── Custodia ─────────────────────────────────────────────────────────────
+  const mesesPendientesCustodia: string[] = []
+  const custodiaPagados = input.mesesCustodiaPagados ?? []
+
+  if (input.fechaRecepcionTitulo) {
+    try {
+      const inicio = new Date(input.fechaRecepcionTitulo + 'T00:00:00')
+      const finCortesia = new Date(inicio)
+      finCortesia.setMonth(finCortesia.getMonth() + 3)
+
+      const cursor = new Date(inicio)
+      cursor.setDate(1) // Primero del mes
+
+      const hoyCursor = new Date(anioActual, new Date().getMonth(), 1)
+
+      while (cursor <= hoyCursor) {
+        const y = cursor.getFullYear()
+        const mIdx = cursor.getMonth()
+        const mStr = `${y}-${String(mIdx + 1).padStart(2, '0')}`
+
+        // ¿Este mes está fuera de la cortesía?
+        const inicioDelMes = new Date(y, mIdx, 1)
+        const isCort = inicioDelMes < finCortesia
+
+        if (!isCort) {
+          if (!custodiaPagados.includes(mStr)) {
+            mesesPendientesCustodia.push(mStr)
+          }
+        }
+        cursor.setMonth(cursor.getMonth() + 1)
+      }
+    } catch (e) {
+      console.error('Error calculando deuda de custodia:', e)
+    }
+  }
+
+  const deudaCustodia = mesesPendientesCustodia.length * 5.00
+
   // ── Totales ──────────────────────────────────────────────────────────────
-  const totalUSD = deudaPreBlock + deudaPostBlock
+  const totalUSD = deudaPreBlock + deudaPostBlock + deudaInscripcion + deudaCustodia
   const esSolvente = totalUSD === 0
   const semaforo: 'verde' | 'rojo' = esSolvente ? 'verde' : 'rojo'
 
-  // Años en el período activo total (2010 → anioActual)
-  const totalAniosPeriodo = anioActual - ANIO_INICIO_PRE + 1
+  // Años en el período activo total (año de inscripción o 2023 → anioActual)
+  const totalAniosPeriodo = anioActual - anioInicioPost + 1
 
   // Años solventes que caen dentro del período activo
   const aniosSolventesEnPeriodo = input.aniosSolventes.filter(
-    (a) => a >= ANIO_INICIO_PRE && a <= anioActual
+    (a) => a >= anioInicioPost && a <= anioActual
   )
 
   return {
@@ -125,6 +202,10 @@ export function calcularDeuda(input: CalculadoraInput): DeudaCalculada {
     deudaPrePagada,
     aniosPendientesPost,
     deudaPostBlock,
+    deudaInscripcion,
+    deudaCustodia,
+    mesesPendientesCustodia,
+    esAgremiadoActivo,
     totalUSD,
     esSolvente,
     semaforo,
@@ -139,17 +220,15 @@ export function calcularDeuda(input: CalculadoraInput): DeudaCalculada {
 
 /**
  * Hook React que calcula la deuda de un agremiado de forma memoizada.
- *
- * @example
- * const { totalUSD, semaforo, aniosPendientesPost } = useCalculadoraDeuda({
- *   aniosSolventes: [2010, 2011, 2012, 2023, 2024],
- * })
- * // Resultado: deudaPreBlock=80 (faltan 2013–2022), deudaPostBlock=40 (2025, 2026)
  */
 export function useCalculadoraDeuda(input: CalculadoraInput): DeudaCalculada {
   return useMemo(() => calcularDeuda(input), [
     // eslint-disable-next-line react-hooks/exhaustive-deps
     JSON.stringify(input.aniosSolventes.sort()),
+    JSON.stringify(input.mesesCustodiaPagados?.sort()),
+    input.fechaInscripcion,
+    input.fechaRecepcionTitulo,
+    input.hasPaidInscription,
     input.anioActualOverride,
   ])
 }

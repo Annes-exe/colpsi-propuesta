@@ -10,6 +10,7 @@ const PAGE_SIZE = 15
 interface AgreiadoRow extends VistaSolvencia {
   deudaTotal: number
   semaforo: 'verde' | 'rojo'
+  esAgremiadoActivo: boolean
 }
 
 export function AgreiadosDataGrid() {
@@ -43,10 +44,19 @@ export function AgreiadosDataGrid() {
       if (error) throw error
 
       const mapped: AgreiadoRow[] = ((data ?? []) as VistaSolvencia[]).map((row: VistaSolvencia) => {
-        const { totalUSD, semaforo } = calcularDeuda({
+        const { totalUSD, semaforo, esAgremiadoActivo } = calcularDeuda({
           aniosSolventes: row.anios_solventes ?? [],
+          fechaInscripcion: row.fecha_inscripcion ?? undefined,
+          fechaRecepcionTitulo: row.fecha_recepcion_titulo ?? null,
+          hasPaidInscription: row.has_paid_inscription ?? false,
+          mesesCustodiaPagados: row.meses_custodia_pagados ?? [],
         })
-        return { ...row, deudaTotal: totalUSD, semaforo }
+        return { 
+          ...row, 
+          deudaTotal: totalUSD, 
+          semaforo,
+          esAgremiadoActivo
+        }
       })
 
       // Filtrar por estado de solvencia en cliente
@@ -191,7 +201,9 @@ export function AgreiadosDataGrid() {
                       <div style={{ fontWeight: 600, color: '#0f172a' }}>
                         {row.apellidos ?? '—'}, {row.nombres ?? '—'}
                       </div>
-                      {row.fecha_inscripcion && new Date(row.fecha_inscripcion + 'T00:00:00').getFullYear() >= 2023 ? (
+                      {!row.esAgremiadoActivo ? (
+                        <span className="text-[9px] font-extrabold px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 uppercase tracking-wide">Pre-agremiado</span>
+                      ) : row.fecha_inscripcion && new Date(row.fecha_inscripcion + 'T00:00:00').getFullYear() >= 2023 ? (
                         <span className="text-[9px] font-extrabold px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 uppercase tracking-wide">Nuevo</span>
                       ) : (
                         <span className="text-[9px] font-extrabold px-1.5 py-0.5 rounded bg-slate-100 text-slate-700 uppercase tracking-wide">Viejo</span>
@@ -202,7 +214,11 @@ export function AgreiadosDataGrid() {
                     {row.correo || <span style={{ color: '#94a3b8' }}>—</span>}
                   </td>
                   <td>
-                    {row.semaforo === 'verde' ? (
+                    {!row.esAgremiadoActivo ? (
+                      <span className="badge-pendiente" style={{ background: '#fef3c7', color: '#d97706', border: '1px solid #fcd34d' }}>
+                        Registrado
+                      </span>
+                    ) : row.semaforo === 'verde' ? (
                       <span className="badge-solvente">Solvente</span>
                     ) : (
                       <span className="badge-pendiente">Pendiente</span>

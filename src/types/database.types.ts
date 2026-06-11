@@ -184,6 +184,9 @@ export type Database = {
           correo: string | null
           telefono: string | null
           fecha_inscripcion: string | null
+          fecha_recepcion_titulo: string | null
+          has_paid_inscription: boolean | null
+          meses_custodia_pagados: string[] | null
           anios_solventes: number[] | null
           total_anios_solventes: number | null
         }

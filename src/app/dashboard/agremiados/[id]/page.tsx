@@ -120,7 +120,18 @@ export default async function AgreiadoDetailPage({ params }: Props) {
     .eq('agremiado_id', id)
     .order('fecha_pago', { ascending: false }) as { data: PagoConSolvencias[] | null }
 
-  const deuda = calcularDeuda({ aniosSolventes: agremiado.anios_solventes ?? [] })
+  const hasPaidInscription = pagos?.some(p => p.tipo_pago === 'inscripcion') ?? false
+  const mesesCustodiaPagados = pagos
+    ?.filter(p => p.tipo_pago === 'custodia')
+    .flatMap(p => p.meses_custodia ?? []) ?? []
+
+  const deuda = calcularDeuda({
+    aniosSolventes: agremiado.anios_solventes ?? [],
+    fechaInscripcion: agremiado.fecha_inscripcion ?? '',
+    fechaRecepcionTitulo: fechaRecepcionTitulo,
+    mesesCustodiaPagados: mesesCustodiaPagados,
+    hasPaidInscription: hasPaidInscription
+  })
   const nombreCompleto = `${agremiado.nombres ?? ''} ${agremiado.apellidos ?? ''}`
   const iniciales = `${(agremiado.nombres ?? 'A')[0]}${(agremiado.apellidos ?? 'A')[0]}`.toUpperCase()
   const anioActual = new Date().getFullYear()
@@ -236,7 +247,12 @@ export default async function AgreiadoDetailPage({ params }: Props) {
               <span style={S.metaSep}>•</span>
               <span style={S.metaFPV}>FPV: {agremiado.fpv ?? '—'}</span>
               <span style={S.metaSep}>•</span>
-              {deuda.esSolvente ? (
+              {!deuda.esAgremiadoActivo ? (
+                <span style={{ display:'inline-flex', alignItems:'center', gap:5, padding:'3px 10px', borderRadius:20, fontSize:12, fontWeight:600, background:'#fef3c7', color:'#d97706', border:'1px solid #fcd34d' }}>
+                  <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#d97706', flexShrink: 0, display: 'inline-block' }} />
+                  Registrado (Inscripción Pendiente)
+                </span>
+              ) : deuda.esSolvente ? (
                 <span style={S.badgeSolvente}>
                   <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#16a34a', flexShrink: 0, display: 'inline-block' }} />
                   Solvente
@@ -248,7 +264,12 @@ export default async function AgreiadoDetailPage({ params }: Props) {
                 </span>
               )}
               <span style={S.metaSep}>•</span>
-              {agremiado.fecha_inscripcion && new Date(agremiado.fecha_inscripcion + 'T00:00:00').getFullYear() >= 2023 ? (
+              {!deuda.esAgremiadoActivo ? (
+                <span style={{ display:'inline-flex', alignItems:'center', gap:5, padding:'3px 10px', borderRadius:20, fontSize:12, fontWeight:600, background:'#f1f5f9', color:'#475569', border:'1px solid #cbd5e1' }}>
+                  <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#64748b', flexShrink: 0, display: 'inline-block' }} />
+                  Pre-agremiado (No Activo)
+                </span>
+              ) : agremiado.fecha_inscripcion && new Date(agremiado.fecha_inscripcion + 'T00:00:00').getFullYear() >= 2023 ? (
                 <span style={{ display:'inline-flex', alignItems:'center', gap:5, padding:'3px 10px', borderRadius:20, fontSize:12, fontWeight:600, background:'#ede9fe', color:'#6d28d9' }}>
                   <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#8b5cf6', flexShrink: 0, display: 'inline-block' }} />
                   Nuevo Agremiado
@@ -479,6 +500,16 @@ export default async function AgreiadoDetailPage({ params }: Props) {
 
             {!deuda.esSolvente && (
               <div style={S.breakdown}>
+                {deuda.deudaInscripcion > 0 && (
+                  <div style={S.deudaRow}>
+                    <span>
+                      Inscripción (Obligatoria)
+                      <br />
+                      <span style={{ opacity: 0.6, fontSize: 11 }}>(Pago único pendiente)</span>
+                    </span>
+                    <span style={{ color: '#e2e8f0', fontWeight: 700, fontFamily: 'monospace' }}>{formatUSD(deuda.deudaInscripcion)}</span>
+                  </div>
+                )}
                 {deuda.deudaPreBlock > 0 && (
                   <div style={S.deudaRow}>
                     <span>
@@ -492,11 +523,25 @@ export default async function AgreiadoDetailPage({ params }: Props) {
                 {deuda.deudaPostBlock > 0 && (
                   <div style={S.deudaRow}>
                     <span>
-                      Post-2023
+                      Solvencias {deuda.tarifaNivelacionAplicada ? '(Tarifa Nivelación)' : ''}
                       <br />
-                      <span style={{ opacity: 0.6, fontSize: 11 }}>({deuda.aniosPendientesPost.length} años × $20)</span>
+                      <span style={{ opacity: 0.6, fontSize: 11 }}>
+                        {deuda.tarifaNivelacionAplicada 
+                          ? 'Todos los años pendientes' 
+                          : `(${deuda.aniosPendientesPost.length} año${deuda.aniosPendientesPost.length !== 1 ? 's' : ''} × $20)`}
+                      </span>
                     </span>
                     <span style={{ color: '#e2e8f0', fontWeight: 700, fontFamily: 'monospace' }}>{formatUSD(deuda.deudaPostBlock)}</span>
+                  </div>
+                )}
+                {deuda.deudaCustodia > 0 && (
+                  <div style={S.deudaRow}>
+                    <span>
+                      Custodia de Título
+                      <br />
+                      <span style={{ opacity: 0.6, fontSize: 11 }}>({deuda.mesesPendientesCustodia.length} mes{deuda.mesesPendientesCustodia.length !== 1 ? 'es' : ''} × $5)</span>
+                    </span>
+                    <span style={{ color: '#e2e8f0', fontWeight: 700, fontFamily: 'monospace' }}>{formatUSD(deuda.deudaCustodia)}</span>
                   </div>
                 )}
                 <div style={S.deudaRowTotal}>
