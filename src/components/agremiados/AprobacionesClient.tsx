@@ -151,7 +151,10 @@ export function AprobacionesClient({ solicitudesIniciales }: AprobacionesClientP
             {filtered.length === 0 ? (
               <tr>
                 <td colSpan={6} className="text-center p-12 text-slate-400">
-                  <div className="text-3xl mb-2">📥</div>
+                  <svg className="w-12 h-12 text-slate-350 mx-auto mb-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                    <polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/>
+                    <path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/>
+                  </svg>
                   <div className="font-bold text-slate-650">No hay solicitudes pendientes</div>
                   <div className="text-[11px] text-slate-400 mt-1">Todas las solicitudes han sido verificadas.</div>
                 </td>
@@ -339,12 +342,12 @@ export function AprobacionesClient({ solicitudesIniciales }: AprobacionesClientP
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                     {[
-                      { type: 'foto' as const, label: 'Foto Carnet', icon: '👤', url: selected.foto_carnet },
-                      { type: 'planilla' as const, label: 'Planilla FPV', icon: '📝', url: selected.planilla_fpv },
-                      { type: 'cedula' as const, label: 'Cédula de Identidad', icon: '🆔', url: selected.cedula_digitalizada },
-                      { type: 'rif' as const, label: 'RIF Digitalizado', icon: '🏛', url: selected.rif_digitalizado },
-                      { type: 'titulo' as const, label: 'Título Profesional', icon: '🎓', url: selected.titulo_graduacion },
-                      { type: 'comprobante' as const, label: 'Comprobante de Pago', icon: '💳', url: selected.pagos[0]?.comprobante_pago }
+                      { type: 'foto' as const, label: 'Foto Carnet', url: selected.foto_carnet },
+                      { type: 'planilla' as const, label: 'Planilla FPV', url: selected.planilla_fpv },
+                      { type: 'cedula' as const, label: 'Cédula de Identidad', url: selected.cedula_digitalizada },
+                      { type: 'rif' as const, label: 'RIF Digitalizado', url: selected.rif_digitalizado },
+                      { type: 'titulo' as const, label: 'Título Profesional', url: selected.titulo_graduacion },
+                      { type: 'comprobante' as const, label: 'Comprobante de Pago', url: selected.pagos[0]?.comprobante_pago }
                     ].map((doc) => {
                       const exists = !!doc.url
                       return (
@@ -357,7 +360,47 @@ export function AprobacionesClient({ solicitudesIniciales }: AprobacionesClientP
                           }`}
                         >
                           <div className="flex items-center gap-2.5">
-                            <span className="text-base">{doc.icon}</span>
+                            <span className="text-slate-500">
+                              {doc.type === 'foto' && (
+                                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                                  <circle cx="12" cy="7" r="4" />
+                                </svg>
+                              )}
+                              {doc.type === 'planilla' && (
+                                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                                  <polyline points="14 2 14 8 20 8" />
+                                </svg>
+                              )}
+                              {doc.type === 'cedula' && (
+                                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                                  <rect x="3" y="4" width="18" height="16" rx="2" />
+                                  <circle cx="9" cy="12" r="2" />
+                                  <path d="M14 9h5M14 13h5" />
+                                </svg>
+                              )}
+                              {doc.type === 'rif' && (
+                                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                                  <polyline points="14 2 14 8 20 8" />
+                                  <line x1="16" y1="13" x2="8" y2="13" />
+                                  <line x1="16" y1="17" x2="8" y2="17" />
+                                </svg>
+                              )}
+                              {doc.type === 'titulo' && (
+                                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                                  <path d="M22 10v6M2 10l10-5 10 5-10 5z" />
+                                  <path d="M6 12v5c0 2 2 3 6 3s6-1 6-3v-5" />
+                                </svg>
+                              )}
+                              {doc.type === 'comprobante' && (
+                                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                                  <rect x="1" y="4" width="22" height="16" rx="2" ry="2" />
+                                  <line x1="1" y1="10" x2="23" y2="10" />
+                                </svg>
+                              )}
+                            </span>
                             <div>
                               <div className="text-[11px] font-bold text-slate-800 leading-tight">{doc.label}</div>
                               <div className="text-[9px] text-slate-400 mt-0.5 truncate max-w-[120px] font-mono">

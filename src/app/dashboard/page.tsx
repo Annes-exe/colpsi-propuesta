@@ -340,7 +340,7 @@ export default async function DashboardPage() {
         {/* Normativa */}
         <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs flex flex-col justify-between">
           <div>
-            <h2 className="text-sm font-bold text-slate-800 uppercase tracking-wider mb-2.5">📋 Normativa de Solvencias</h2>
+            <h2 className="text-sm font-bold text-slate-800 uppercase tracking-wider mb-2.5">Normativa de Solvencias</h2>
             <div className="grid grid-cols-2 gap-3 mb-3">
               <div className="p-2.5 bg-red-50 border border-red-100 rounded-xl">
                 <span className="text-[10px] font-bold text-red-800 uppercase tracking-wide">Tarifa Solvencia</span>
@@ -355,7 +355,7 @@ export default async function DashboardPage() {
             </div>
           </div>
           <div className="text-[11px] text-slate-500 bg-slate-50 p-2.5 rounded-lg border border-slate-150 leading-relaxed">
-            💡 <strong>Inscripción:</strong> Obligatorio $30.00. <strong>Carnet:</strong> $15.00. <strong>Custodia:</strong> $5.00/mes (exentos primeros 3 meses cortesía).
+            <strong>Inscripción:</strong> Obligatorio $30.00. <strong>Carnet:</strong> $15.00. <strong>Custodia:</strong> $5.00/mes (exentos primeros 3 meses cortesía).
           </div>
         </div>
       </div>

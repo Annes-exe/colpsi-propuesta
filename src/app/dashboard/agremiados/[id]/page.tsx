@@ -389,7 +389,10 @@ export default async function AgreiadoDetailPage({ params }: Props) {
 
             {!pagos || pagos.length === 0 ? (
               <div style={S.emptyState}>
-                <div style={{ fontSize: 36, marginBottom: 10 }}>💳</div>
+                <svg style={{ width: 40, height: 40, color: '#cbd5e1', margin: '0 auto 12px' }} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                  <rect x="1" y="4" width="22" height="16" rx="2" ry="2" />
+                  <line x1="1" y1="10" x2="23" y2="10" />
+                </svg>
                 <p style={{ fontSize: 14, fontWeight: 600, margin: '0 0 4px' }}>Sin pagos registrados</p>
                 <span style={{ fontSize: 12.5 }}>Los pagos aparecerán aquí una vez registrados.</span>
               </div>

@@ -126,7 +126,7 @@ export function AgreiadosDataGrid() {
                   boxShadow: filtroSolvencia === f ? '0 1px 4px rgba(0,0,0,0.08)' : 'none',
                 }}
               >
-                {f === 'todos' ? 'Todos' : f === 'solventes' ? '🟢 Solventes' : '🔴 Pendientes'}
+                {f === 'todos' ? 'Todos' : f === 'solventes' ? 'Solventes' : 'Pendientes'}
               </button>
             ))}
           </div>
@@ -179,7 +179,10 @@ export function AgreiadosDataGrid() {
             ) : rows.length === 0 ? (
               <tr>
                 <td colSpan={8} style={{ textAlign: 'center', padding: '40px 20px', color: '#94a3b8' }}>
-                  <div style={{ fontSize: 32, marginBottom: 8 }}>🔍</div>
+                  <svg className="w-10 h-10 text-slate-300 mx-auto mb-2.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                    <circle cx="11" cy="11" r="8"/>
+                    <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+                  </svg>
                   <div style={{ fontWeight: 600 }}>No se encontraron resultados</div>
                   <div style={{ fontSize: 12.5, marginTop: 4 }}>Intenta con otro término de búsqueda</div>
                 </td>
