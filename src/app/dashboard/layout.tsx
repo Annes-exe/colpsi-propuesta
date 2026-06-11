@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { Sidebar } from '@/components/layout/Sidebar'
+import { CurrencyCalculator } from '@/components/layout/CurrencyCalculator'
 import type { Profile } from '@/types/database.types'
 
 export const metadata: Metadata = {
@@ -41,6 +42,7 @@ export default async function DashboardLayout({
             </h2>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <CurrencyCalculator />
             <div style={{
               display: 'flex',
               alignItems: 'center',
