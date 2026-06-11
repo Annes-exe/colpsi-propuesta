@@ -225,20 +225,23 @@ export default async function AgreiadoDetailPage({ params }: Props) {
       <div style={S.header}>
         <div style={S.headerLeft}>
           <div style={{ ...S.avatar, overflow: 'hidden', padding: 0 }}>
-            {/* Renders a premium vector placeholder of a psychologist avatar */}
-            <svg viewBox="0 0 120 120" className="w-full h-full">
-              <rect width="120" height="120" fill="#2563eb" />
-              {/* Head */}
-              <circle cx="60" cy="50" r="22" fill="#fed7aa" />
-              {/* Shoulders */}
-              <path d="M20 100c0-18 18-30 40-30s40 12 40 30" fill="#3b82f6" />
-              {/* Tie */}
-              <path d="M60 70l-6 16h12z" fill="#1d4ed8" />
-              {/* Suit collars */}
-              <path d="M40 70l20 30 20-30" fill="none" stroke="#1e40af" strokeWidth="3" />
-              {/* Hair/Cap */}
-              <path d="M38 50c0-15 10-22 22-22s22 7 22 22v3H38z" fill="#475569" />
-            </svg>
+            {agremiado.foto_carnet && !agremiado.foto_carnet.includes('placeholder') ? (
+              <img src={agremiado.foto_carnet} alt={nombreCompleto} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            ) : (
+              <svg viewBox="0 0 120 120" className="w-full h-full">
+                <rect width="120" height="120" fill="#2563eb" />
+                {/* Head */}
+                <circle cx="60" cy="50" r="22" fill="#fed7aa" />
+                {/* Shoulders */}
+                <path d="M20 100c0-18 18-30 40-30s40 12 40 30" fill="#3b82f6" />
+                {/* Tie */}
+                <path d="M60 70l-6 16h12z" fill="#1d4ed8" />
+                {/* Suit collars */}
+                <path d="M40 70l20 30 20-30" fill="none" stroke="#1e40af" strokeWidth="3" />
+                {/* Hair/Cap */}
+                <path d="M38 50c0-15 10-22 22-22s22 7 22 22v3H38z" fill="#475569" />
+              </svg>
+            )}
           </div>
           <div>
             <h1 style={S.nombre}>{agremiado.nombres ?? '—'} {agremiado.apellidos ?? '—'}</h1>
@@ -295,6 +298,13 @@ export default async function AgreiadoDetailPage({ params }: Props) {
               correo: agremiado.correo,
               telefono: agremiado.telefono,
               fecha_inscripcion: agremiado.fecha_inscripcion ?? '',
+              direccion: agremiado.direccion,
+              colegio_pertenece: agremiado.colegio_pertenece,
+              foto_carnet: agremiado.foto_carnet,
+              planilla_fpv: agremiado.planilla_fpv,
+              cedula_digitalizada: agremiado.cedula_digitalizada,
+              rif_digitalizado: agremiado.rif_digitalizado,
+              titulo_graduacion: agremiado.titulo_graduacion,
             }}
             fechaRecepcionTitulo={fechaRecepcionTitulo}
           />
@@ -330,6 +340,18 @@ export default async function AgreiadoDetailPage({ params }: Props) {
                   value: agremiado.telefono
                     ? <a href={`tel:${agremiado.telefono}`} style={{ color: '#2563eb', textDecoration: 'none', fontWeight: 500 }}>{agremiado.telefono}</a>
                     : <span style={{ color: '#94a3b8', fontStyle: 'italic' }}>No registrado</span>,
+                },
+                {
+                  label: 'Colegio Perteneciente',
+                  value: agremiado.colegio_pertenece
+                    ? <span style={{ fontWeight: 500 }}>{agremiado.colegio_pertenece}</span>
+                    : <span style={{ color: '#94a3b8', fontStyle: 'italic' }}>No registrado</span>,
+                },
+                {
+                  label: 'Dirección de Habitación',
+                  value: agremiado.direccion
+                    ? <span style={{ fontWeight: 500 }}>{agremiado.direccion}</span>
+                    : <span style={{ color: '#94a3b8', fontStyle: 'italic' }}>No registrada</span>,
                 },
                 {
                   label: 'Fecha de Inscripción',
@@ -594,6 +616,11 @@ export default async function AgreiadoDetailPage({ params }: Props) {
             cedula={agremiado.cedula ?? ''}
             fpv={agremiado.fpv ?? ''}
             fechaInscripcion={agremiado.fecha_inscripcion ?? ''}
+            fotoCarnetUrl={agremiado.foto_carnet}
+            planillaFpvUrl={agremiado.planilla_fpv}
+            cedulaDigitalizadaUrl={agremiado.cedula_digitalizada}
+            rifDigitalizadoUrl={agremiado.rif_digitalizado}
+            tituloGraduacionUrl={agremiado.titulo_graduacion}
           />
 
         </div>

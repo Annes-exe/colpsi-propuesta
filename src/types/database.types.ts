@@ -26,6 +26,13 @@ export type Database = {
           telefono: string | null
           fecha_inscripcion: string
           fecha_recepcion_titulo: string | null
+          direccion: string | null
+          colegio_pertenece: string | null
+          foto_carnet: string | null
+          planilla_fpv: string | null
+          cedula_digitalizada: string | null
+          rif_digitalizado: string | null
+          titulo_graduacion: string | null
           created_at: string | null
           updated_at: string | null
         }
@@ -39,6 +46,13 @@ export type Database = {
           telefono?: string | null
           fecha_inscripcion: string
           fecha_recepcion_titulo?: string | null
+          direccion?: string | null
+          colegio_pertenece?: string | null
+          foto_carnet?: string | null
+          planilla_fpv?: string | null
+          cedula_digitalizada?: string | null
+          rif_digitalizado?: string | null
+          titulo_graduacion?: string | null
           created_at?: string | null
           updated_at?: string | null
         }
@@ -52,6 +66,13 @@ export type Database = {
           telefono?: string | null
           fecha_inscripcion?: string
           fecha_recepcion_titulo?: string | null
+          direccion?: string | null
+          colegio_pertenece?: string | null
+          foto_carnet?: string | null
+          planilla_fpv?: string | null
+          cedula_digitalizada?: string | null
+          rif_digitalizado?: string | null
+          titulo_graduacion?: string | null
           updated_at?: string | null
         }
         Relationships: []
@@ -67,6 +88,7 @@ export type Database = {
           referencia: string
           metodo_pago: string
           notas: string | null
+          comprobante_pago: string | null
           created_at: string | null
           tipo_pago: 'solvencia' | 'inscripcion' | 'custodia' | 'carnet'
           meses_custodia: string[]
@@ -81,6 +103,7 @@ export type Database = {
           referencia: string
           metodo_pago: string
           notas?: string | null
+          comprobante_pago?: string | null
           created_at?: string | null
           tipo_pago?: 'solvencia' | 'inscripcion' | 'custodia' | 'carnet'
           meses_custodia?: string[]
@@ -94,6 +117,7 @@ export type Database = {
           referencia?: string
           metodo_pago?: string
           notas?: string | null
+          comprobante_pago?: string | null
           tipo_pago?: 'solvencia' | 'inscripcion' | 'custodia' | 'carnet'
           meses_custodia?: string[]
         }
@@ -185,6 +209,13 @@ export type Database = {
           telefono: string | null
           fecha_inscripcion: string | null
           fecha_recepcion_titulo: string | null
+          direccion: string | null
+          colegio_pertenece: string | null
+          foto_carnet: string | null
+          planilla_fpv: string | null
+          cedula_digitalizada: string | null
+          rif_digitalizado: string | null
+          titulo_graduacion: string | null
           has_paid_inscription: boolean | null
           meses_custodia_pagados: string[] | null
           anios_solventes: number[] | null

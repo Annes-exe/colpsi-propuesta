@@ -77,6 +77,13 @@ export async function registrarAgremiado(rawData: AgreimadoInput): Promise<Agrem
       telefono: data.telefono?.trim() || null,
       fecha_inscripcion: data.fecha_inscripcion,
       fecha_recepcion_titulo: data.fecha_recepcion_titulo || null,
+      direccion: data.direccion?.trim() || null,
+      colegio_pertenece: data.colegio_pertenece?.trim() || null,
+      foto_carnet: data.foto_carnet || null,
+      planilla_fpv: data.planilla_fpv || null,
+      cedula_digitalizada: data.cedula_digitalizada || null,
+      rif_digitalizado: data.rif_digitalizado || null,
+      titulo_graduacion: data.titulo_graduacion || null,
     }
 
     const { data: inserted, error: insertError } = await db
@@ -134,6 +141,13 @@ export async function editarAgremiado(id: string, rawData: AgreimadoInput): Prom
       telefono: data.telefono?.trim() || null,
       fecha_inscripcion: data.fecha_inscripcion,
       fecha_recepcion_titulo: data.fecha_recepcion_titulo || null,
+      direccion: data.direccion?.trim() || null,
+      colegio_pertenece: data.colegio_pertenece?.trim() || null,
+      foto_carnet: data.foto_carnet || null,
+      planilla_fpv: data.planilla_fpv || null,
+      cedula_digitalizada: data.cedula_digitalizada || null,
+      rif_digitalizado: data.rif_digitalizado || null,
+      titulo_graduacion: data.titulo_graduacion || null,
       updated_at: new Date().toISOString(),
     }
 

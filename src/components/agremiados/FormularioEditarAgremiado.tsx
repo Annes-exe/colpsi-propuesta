@@ -16,6 +16,13 @@ interface FormularioEditarProps {
     correo: string | null
     telefono: string | null
     fecha_inscripcion: string
+    direccion?: string | null
+    colegio_pertenece?: string | null
+    foto_carnet?: string | null
+    planilla_fpv?: string | null
+    cedula_digitalizada?: string | null
+    rif_digitalizado?: string | null
+    titulo_graduacion?: string | null
   }
   fechaRecepcionTitulo: string | null
   onSuccess?: () => void
@@ -32,14 +39,22 @@ export function FormularioEditarAgremiado({
   const [serverError, setServerError] = useState<string | null>(null)
   const [successMsg, setSuccessMsg] = useState<string | null>(null)
 
+  const getFileName = (path?: string | null) => {
+    if (!path) return null
+    return path.replace(/^\/placeholders\//, '')
+  }
+
   // Estados locales para simular la subida de archivos (placeholders de alta fidelidad)
-  const [fotoPerfilName, setFotoPerfilName] = useState<string | null>(null)
-  const [tituloFrenteName, setTituloFrenteName] = useState<string | null>(null)
-  const [tituloReversoName, setTituloReversoName] = useState<string | null>(null)
+  const [fotoPerfilName, setFotoPerfilName] = useState<string | null>(getFileName(agremiado.foto_carnet))
+  const [planillaFpvName, setPlanillaFpvName] = useState<string | null>(getFileName(agremiado.planilla_fpv))
+  const [cedulaDigitalizadaName, setCedulaDigitalizadaName] = useState<string | null>(getFileName(agremiado.cedula_digitalizada))
+  const [rifDigitalizadoName, setRifDigitalizadoName] = useState<string | null>(getFileName(agremiado.rif_digitalizado))
+  const [tituloGraduacionName, setTituloGraduacionName] = useState<string | null>(getFileName(agremiado.titulo_graduacion))
 
   const {
     register,
     handleSubmit,
+    setValue,
     formState: { errors },
   } = useForm<AgreimadoInput>({
     resolver: zodResolver(agreimadoSchema),
@@ -56,18 +71,43 @@ export function FormularioEditarAgremiado({
       fecha_recepcion_titulo: fechaRecepcionTitulo
         ? new Date(fechaRecepcionTitulo + 'T00:00:00').toISOString().split('T')[0]
         : '',
+      direccion: agremiado.direccion || '',
+      colegio_pertenece: agremiado.colegio_pertenece || '',
+      foto_carnet: agremiado.foto_carnet || '',
+      planilla_fpv: agremiado.planilla_fpv || '',
+      cedula_digitalizada: agremiado.cedula_digitalizada || '',
+      rif_digitalizado: agremiado.rif_digitalizado || '',
+      titulo_graduacion: agremiado.titulo_graduacion || '',
     },
   })
 
   // Simulación de interacción de archivos
-  const handleSimulatedUpload = (type: 'foto' | 'frente' | 'reverso') => {
-    if (type === 'foto') {
-      setFotoPerfilName(fotoPerfilName ? null : 'foto_perfil_agremiado.png')
-    } else if (type === 'frente') {
-      setTituloFrenteName(tituloFrenteName ? null : 'titulo_frente_profesional.pdf')
-    } else if (type === 'reverso') {
-      setTituloReversoName(tituloReversoName ? null : 'titulo_reverso_profesional.pdf')
+  const handleSimulatedUpload = (field: 'foto_carnet' | 'planilla_fpv' | 'cedula_digitalizada' | 'rif_digitalizado' | 'titulo_graduacion') => {
+    let name: string | null = null
+    switch (field) {
+      case 'foto_carnet':
+        name = fotoPerfilName ? null : 'foto_perfil_agremiado.png'
+        setFotoPerfilName(name)
+        break
+      case 'planilla_fpv':
+        name = planillaFpvName ? null : 'planilla_fpv_registro.pdf'
+        setPlanillaFpvName(name)
+        break
+      case 'cedula_digitalizada':
+        name = cedulaDigitalizadaName ? null : 'cedula_digitalizada.pdf'
+        setCedulaDigitalizadaName(name)
+        break
+      case 'rif_digitalizado':
+        name = rifDigitalizadoName ? null : 'rif_digitalizado.pdf'
+        setRifDigitalizadoName(name)
+        break
+      case 'titulo_graduacion':
+        name = tituloGraduacionName ? null : 'titulo_profesional.pdf'
+        setTituloGraduacionName(name)
+        break
     }
+    // Update the react-hook-form value
+    setValue(field, name ? `/placeholders/${name}` : '', { shouldDirty: true })
   }
 
   const onSubmit = (data: AgreimadoInput) => {
@@ -155,6 +195,13 @@ export function FormularioEditarAgremiado({
           noValidate
           className="flex-1 overflow-y-auto px-6 py-5 flex flex-col gap-5"
         >
+          {/* Form hidden fields for files */}
+          <input type="hidden" {...register('foto_carnet')} />
+          <input type="hidden" {...register('planilla_fpv')} />
+          <input type="hidden" {...register('cedula_digitalizada')} />
+          <input type="hidden" {...register('rif_digitalizado')} />
+          <input type="hidden" {...register('titulo_graduacion')} />
+
           {/* Fila 1: Nombres y Apellidos */}
           <div className="grid grid-cols-2 gap-4">
             <div className="flex flex-col">
@@ -271,18 +318,49 @@ export function FormularioEditarAgremiado({
             </div>
           </div>
 
+          {/* Fila 5: Colegio al que pertenece y Dirección */}
+          <div className="grid grid-cols-2 gap-4">
+            <div className="flex flex-col col-span-1">
+              <label htmlFor="edit-colegio" className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Colegio Perteneciente</label>
+              <input
+                id="edit-colegio"
+                type="text"
+                placeholder="Ej. Colegio de Psicólogos de Distrito Capital"
+                className={`w-full px-3 py-2 rounded-lg border text-sm text-slate-900 bg-slate-50 outline-hidden focus:border-blue-500 focus:bg-white transition-all ${
+                  errors.colegio_pertenece ? 'border-red-400 bg-red-50/50' : 'border-slate-200'
+                }`}
+                {...register('colegio_pertenece')}
+              />
+              {errors.colegio_pertenece && <span className="text-[11px] text-red-500 mt-1">{errors.colegio_pertenece.message}</span>}
+            </div>
+
+            <div className="flex flex-col col-span-1">
+              <label htmlFor="edit-direccion" className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Dirección de Habitación</label>
+              <textarea
+                id="edit-direccion"
+                rows={1}
+                placeholder="Dirección completa del agremiado"
+                className={`w-full px-3 py-2 rounded-lg border text-sm text-slate-900 bg-slate-50 outline-hidden focus:border-blue-500 focus:bg-white transition-all resize-none ${
+                  errors.direccion ? 'border-red-400 bg-red-50/50' : 'border-slate-200'
+                }`}
+                {...register('direccion')}
+              />
+              {errors.direccion && <span className="text-[11px] text-red-500 mt-1">{errors.direccion.message}</span>}
+            </div>
+          </div>
+
           <div className="border-b border-slate-100 my-1" />
 
           {/* Adjuntar Archivos (Estéticos / Mock placeholders) */}
           <div className="flex flex-col gap-3">
-            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Documentación Adjunta (Estético)</span>
+            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Documentación Digitalizada</span>
 
-            {/* Foto de Perfil Dropzone */}
+            {/* Foto de Carnet */}
             <div className="flex flex-col gap-2">
-              <span className="text-[11px] font-semibold text-slate-500">Fotografía de Perfil (Fondo Blanco)</span>
+              <span className="text-[11px] font-semibold text-slate-500">Foto Carnet (Fondo Blanco)</span>
               <button
                 type="button"
-                onClick={() => handleSimulatedUpload('foto')}
+                onClick={() => handleSimulatedUpload('foto_carnet')}
                 className={`w-full p-4 rounded-xl border border-dashed text-left flex items-center justify-between transition-all ${
                   fotoPerfilName
                     ? 'border-emerald-300 bg-emerald-50/30 text-emerald-800'
@@ -291,13 +369,13 @@ export function FormularioEditarAgremiado({
               >
                 <div className="flex items-center gap-3">
                   {fotoPerfilName ? (
-                    <div className="w-10 h-10 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-700">
+                    <div className="w-10 h-10 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-700 flex-shrink-0">
                       <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                         <polyline points="20 6 9 17 4 12" />
                       </svg>
                     </div>
                   ) : (
-                    <div className="w-10 h-10 rounded-full bg-slate-200 flex items-center justify-center text-slate-500">
+                    <div className="w-10 h-10 rounded-full bg-slate-200 flex items-center justify-center text-slate-500 flex-shrink-0">
                       <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                         <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
                         <circle cx="12" cy="13" r="4" />
@@ -315,27 +393,27 @@ export function FormularioEditarAgremiado({
               </button>
             </div>
 
-            {/* Título de Psicólogo (Frente) Dropzone */}
+            {/* Planilla FPV */}
             <div className="flex flex-col gap-2">
-              <span className="text-[11px] font-semibold text-slate-500">Título Profesional (Frente)</span>
+              <span className="text-[11px] font-semibold text-slate-500">Planilla de Inscripción FPV</span>
               <button
                 type="button"
-                onClick={() => handleSimulatedUpload('frente')}
+                onClick={() => handleSimulatedUpload('planilla_fpv')}
                 className={`w-full p-4 rounded-xl border border-dashed text-left flex items-center justify-between transition-all ${
-                  tituloFrenteName
+                  planillaFpvName
                     ? 'border-emerald-300 bg-emerald-50/30 text-emerald-800'
                     : 'border-slate-300 bg-slate-50 hover:bg-slate-100/70 text-slate-600'
                 }`}
               >
                 <div className="flex items-center gap-3">
-                  {tituloFrenteName ? (
-                    <div className="w-10 h-10 rounded-xl bg-emerald-100 flex items-center justify-center text-emerald-700">
+                  {planillaFpvName ? (
+                    <div className="w-10 h-10 rounded-xl bg-emerald-100 flex items-center justify-center text-emerald-700 flex-shrink-0">
                       <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                         <polyline points="20 6 9 17 4 12" />
                       </svg>
                     </div>
                   ) : (
-                    <div className="w-10 h-10 rounded-xl bg-slate-200 flex items-center justify-center text-slate-500">
+                    <div className="w-10 h-10 rounded-xl bg-slate-200 flex items-center justify-center text-slate-500 flex-shrink-0">
                       <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                         <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
                         <polyline points="14 2 14 8 20 8" />
@@ -343,37 +421,37 @@ export function FormularioEditarAgremiado({
                     </div>
                   )}
                   <div>
-                    <div className="text-xs font-bold">{tituloFrenteName ? '✓ Título (Frente) Cargado' : 'Seleccionar Documento'}</div>
-                    <div className="text-[10px] text-slate-400 mt-0.5">{tituloFrenteName ? tituloFrenteName : 'Formatos: PDF, JPG (Máx 5MB)'}</div>
+                    <div className="text-xs font-bold">{planillaFpvName ? '✓ Planilla FPV Cargada' : 'Seleccionar Documento'}</div>
+                    <div className="text-[10px] text-slate-400 mt-0.5">{planillaFpvName ? planillaFpvName : 'Formatos: PDF, JPG (Máx 5MB)'}</div>
                   </div>
                 </div>
-                {tituloFrenteName && (
+                {planillaFpvName && (
                   <span className="text-[10px] font-bold text-red-500 hover:underline">Quitar</span>
                 )}
               </button>
             </div>
 
-            {/* Título de Psicólogo (Reverso) Dropzone */}
+            {/* Cédula Digitalizada */}
             <div className="flex flex-col gap-2">
-              <span className="text-[11px] font-semibold text-slate-500">Título Profesional (Reverso)</span>
+              <span className="text-[11px] font-semibold text-slate-500">Cédula de Identidad Digitalizada</span>
               <button
                 type="button"
-                onClick={() => handleSimulatedUpload('reverso')}
+                onClick={() => handleSimulatedUpload('cedula_digitalizada')}
                 className={`w-full p-4 rounded-xl border border-dashed text-left flex items-center justify-between transition-all ${
-                  tituloReversoName
+                  cedulaDigitalizadaName
                     ? 'border-emerald-300 bg-emerald-50/30 text-emerald-800'
                     : 'border-slate-300 bg-slate-50 hover:bg-slate-100/70 text-slate-600'
                 }`}
               >
                 <div className="flex items-center gap-3">
-                  {tituloReversoName ? (
-                    <div className="w-10 h-10 rounded-xl bg-emerald-100 flex items-center justify-center text-emerald-700">
+                  {cedulaDigitalizadaName ? (
+                    <div className="w-10 h-10 rounded-xl bg-emerald-100 flex items-center justify-center text-emerald-700 flex-shrink-0">
                       <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                         <polyline points="20 6 9 17 4 12" />
                       </svg>
                     </div>
                   ) : (
-                    <div className="w-10 h-10 rounded-xl bg-slate-200 flex items-center justify-center text-slate-500">
+                    <div className="w-10 h-10 rounded-xl bg-slate-200 flex items-center justify-center text-slate-500 flex-shrink-0">
                       <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                         <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
                         <polyline points="14 2 14 8 20 8" />
@@ -381,11 +459,87 @@ export function FormularioEditarAgremiado({
                     </div>
                   )}
                   <div>
-                    <div className="text-xs font-bold">{tituloReversoName ? '✓ Título (Reverso) Cargado' : 'Seleccionar Documento'}</div>
-                    <div className="text-[10px] text-slate-400 mt-0.5">{tituloReversoName ? tituloReversoName : 'Formatos: PDF, JPG (Máx 5MB)'}</div>
+                    <div className="text-xs font-bold">{cedulaDigitalizadaName ? '✓ Cédula Cargada' : 'Seleccionar Documento'}</div>
+                    <div className="text-[10px] text-slate-400 mt-0.5">{cedulaDigitalizadaName ? cedulaDigitalizadaName : 'Formatos: PDF, JPG (Máx 3MB)'}</div>
                   </div>
                 </div>
-                {tituloReversoName && (
+                {cedulaDigitalizadaName && (
+                  <span className="text-[10px] font-bold text-red-500 hover:underline">Quitar</span>
+                )}
+              </button>
+            </div>
+
+            {/* RIF Digitalizado */}
+            <div className="flex flex-col gap-2">
+              <span className="text-[11px] font-semibold text-slate-500">RIF Digitalizado</span>
+              <button
+                type="button"
+                onClick={() => handleSimulatedUpload('rif_digitalizado')}
+                className={`w-full p-4 rounded-xl border border-dashed text-left flex items-center justify-between transition-all ${
+                  rifDigitalizadoName
+                    ? 'border-emerald-300 bg-emerald-50/30 text-emerald-800'
+                    : 'border-slate-300 bg-slate-50 hover:bg-slate-100/70 text-slate-600'
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  {rifDigitalizadoName ? (
+                    <div className="w-10 h-10 rounded-xl bg-emerald-100 flex items-center justify-center text-emerald-700 flex-shrink-0">
+                      <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                        <polyline points="20 6 9 17 4 12" />
+                      </svg>
+                    </div>
+                  ) : (
+                    <div className="w-10 h-10 rounded-xl bg-slate-200 flex items-center justify-center text-slate-500 flex-shrink-0">
+                      <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                        <polyline points="14 2 14 8 20 8" />
+                      </svg>
+                    </div>
+                  )}
+                  <div>
+                    <div className="text-xs font-bold">{rifDigitalizadoName ? '✓ RIF Cargado' : 'Seleccionar Documento'}</div>
+                    <div className="text-[10px] text-slate-400 mt-0.5">{rifDigitalizadoName ? rifDigitalizadoName : 'Formatos: PDF, JPG (Máx 3MB)'}</div>
+                  </div>
+                </div>
+                {rifDigitalizadoName && (
+                  <span className="text-[10px] font-bold text-red-500 hover:underline">Quitar</span>
+                )}
+              </button>
+            </div>
+
+            {/* Título Profesional */}
+            <div className="flex flex-col gap-2">
+              <span className="text-[11px] font-semibold text-slate-500">Título Universitario de Psicólogo</span>
+              <button
+                type="button"
+                onClick={() => handleSimulatedUpload('titulo_graduacion')}
+                className={`w-full p-4 rounded-xl border border-dashed text-left flex items-center justify-between transition-all ${
+                  tituloGraduacionName
+                    ? 'border-emerald-300 bg-emerald-50/30 text-emerald-800'
+                    : 'border-slate-300 bg-slate-50 hover:bg-slate-100/70 text-slate-600'
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  {tituloGraduacionName ? (
+                    <div className="w-10 h-10 rounded-xl bg-emerald-100 flex items-center justify-center text-emerald-700 flex-shrink-0">
+                      <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                        <polyline points="20 6 9 17 4 12" />
+                      </svg>
+                    </div>
+                  ) : (
+                    <div className="w-10 h-10 rounded-xl bg-slate-200 flex items-center justify-center text-slate-500 flex-shrink-0">
+                      <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                        <polyline points="14 2 14 8 20 8" />
+                      </svg>
+                    </div>
+                  )}
+                  <div>
+                    <div className="text-xs font-bold">{tituloGraduacionName ? '✓ Título Cargado' : 'Seleccionar Documento'}</div>
+                    <div className="text-[10px] text-slate-400 mt-0.5">{tituloGraduacionName ? tituloGraduacionName : 'Formatos: PDF, JPG (Máx 5MB)'}</div>
+                  </div>
+                </div>
+                {tituloGraduacionName && (
                   <span className="text-[10px] font-bold text-red-500 hover:underline">Quitar</span>
                 )}
               </button>
@@ -413,7 +567,7 @@ export function FormularioEditarAgremiado({
             className={`flex-2 py-2.5 px-4 rounded-xl text-white font-bold text-sm cursor-pointer shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2 ${
               isPending
                 ? 'bg-slate-200 text-slate-400 cursor-not-allowed shadow-none'
-                : 'bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-805 hover:scale-[1.01] active:scale-[0.99]'
+                : 'bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 hover:scale-[1.01] active:scale-[0.99]'
             }`}
           >
             {isPending ? (

@@ -72,6 +72,13 @@ export const agreimadoSchema = z.object({
     .optional()
     .or(z.literal(''))
     .or(z.null()),
+  direccion: z.string().optional().or(z.literal('')).or(z.null()),
+  colegio_pertenece: z.string().optional().or(z.literal('')).or(z.null()),
+  foto_carnet: z.string().optional().or(z.literal('')).or(z.null()),
+  planilla_fpv: z.string().optional().or(z.literal('')).or(z.null()),
+  cedula_digitalizada: z.string().optional().or(z.literal('')).or(z.null()),
+  rif_digitalizado: z.string().optional().or(z.literal('')).or(z.null()),
+  titulo_graduacion: z.string().optional().or(z.literal('')).or(z.null()),
 })
 
 export type AgreimadoInput = z.infer<typeof agreimadoSchema>

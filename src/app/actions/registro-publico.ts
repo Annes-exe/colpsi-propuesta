@@ -114,7 +114,14 @@ export async function registrarAgremiadoPublico(formData: FormData): Promise<Act
         nombres: data.nombre.trim(),
         apellidos: data.apellido.trim(),
         correo: data.correo.trim(),
-        fecha_inscripcion: new Date().toISOString().split('T')[0]
+        fecha_inscripcion: new Date().toISOString().split('T')[0],
+        direccion: data.direccion.trim(),
+        colegio_pertenece: data.colegio_pertenece.trim(),
+        foto_carnet: urls.foto_carnet,
+        planilla_fpv: urls.planilla_fpv,
+        cedula_digitalizada: urls.cedula_digitalizada,
+        rif_digitalizado: urls.rif_digitalizado,
+        titulo_graduacion: urls.titulo_graduacion
       })
       .select('id')
       .single()
@@ -152,7 +159,8 @@ export async function registrarAgremiadoPublico(formData: FormData): Promise<Act
       metodo_pago: mappedMetodo,
       tipo_pago: isInscription ? 'inscripcion' : 'solvencia',
       notas: notasStr,
-      meses_custodia: []
+      meses_custodia: [],
+      comprobante_pago: urls.comprobante_pago
     }
 
     const { data: newPago, error: pagoError } = await db

@@ -14,6 +14,13 @@ interface EditarPerfilTriggerProps {
     correo: string | null
     telefono: string | null
     fecha_inscripcion: string
+    direccion?: string | null
+    colegio_pertenece?: string | null
+    foto_carnet?: string | null
+    planilla_fpv?: string | null
+    cedula_digitalizada?: string | null
+    rif_digitalizado?: string | null
+    titulo_graduacion?: string | null
   }
   fechaRecepcionTitulo: string | null
 }
