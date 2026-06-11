@@ -3,6 +3,7 @@
 import React, { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
+import Link from 'next/link'
 import { registroPublicoSchema, type RegistroPublicoInput } from '@/schemas/registro'
 import { registrarAgremiadoPublico, type ActionResponse } from '@/app/actions/registro-publico'
 
@@ -14,21 +15,12 @@ export default function RegistroPublicoPage() {
     register,
     handleSubmit,
     watch,
+    setValue,
     reset,
     formState: { errors }
   } = useForm<RegistroPublicoInput>({
     resolver: zodResolver(registroPublicoSchema)
   })
-
-  // Watch file fields to show preview names
-  const watchedFiles = {
-    foto_carnet: watch('foto_carnet'),
-    planilla_fpv: watch('planilla_fpv'),
-    cedula_digitalizada: watch('cedula_digitalizada'),
-    rif_digitalizado: watch('rif_digitalizado'),
-    titulo_graduacion: watch('titulo_graduacion'),
-    comprobante_pago: watch('comprobante_pago'),
-  }
 
   const onSubmit = async (data: RegistroPublicoInput) => {
     setIsLoading(true)
@@ -36,14 +28,10 @@ export default function RegistroPublicoPage() {
     try {
       const formData = new FormData()
       
-      // Append all text, enum, and file values to FormData
+      // Append all simulated text values to FormData
       Object.keys(data).forEach((key) => {
         const val = data[key as keyof RegistroPublicoInput]
-        if (val instanceof FileList) {
-          if (val.length > 0) {
-            formData.append(key, val[0])
-          }
-        } else if (val !== undefined && val !== null) {
+        if (val !== undefined && val !== null) {
           formData.append(key, String(val))
         }
       })
@@ -61,9 +49,8 @@ export default function RegistroPublicoPage() {
     }
   }
 
-  const renderFileInput = (name: keyof typeof watchedFiles, label: string) => {
-    const fileList = watchedFiles[name]
-    const fileName = fileList && fileList[0]?.name
+  const renderFileInput = (name: keyof RegistroPublicoInput, label: string, dummyFilename: string) => {
+    const value = watch(name) as string
     const hasError = !!errors[name]
 
     return (
@@ -71,19 +58,24 @@ export default function RegistroPublicoPage() {
         <label className="text-xs font-semibold text-slate-700 uppercase tracking-wider block">
           {label} <span className="text-red-500">*</span>
         </label>
-        <label className={`group border-2 border-dashed rounded-xl p-4 flex flex-col items-center justify-center cursor-pointer transition-all ${
-          fileName 
-            ? 'border-blue-500 bg-blue-50/20' 
-            : 'border-slate-300 hover:border-blue-400 bg-slate-50/50 hover:bg-slate-50'
-        } ${hasError ? 'border-red-400 bg-red-50/10' : ''}`}>
-          <input
-            type="file"
-            accept=".jpg,.jpeg,.png,.pdf"
-            className="hidden"
-            {...register(name)}
-          />
-          <div className="flex flex-col items-center justify-center text-center">
-            {fileName ? (
+        <input type="hidden" {...register(name)} />
+        <button
+          type="button"
+          onClick={() => {
+            if (value) {
+              setValue(name, '', { shouldValidate: true })
+            } else {
+              setValue(name, dummyFilename, { shouldValidate: true })
+            }
+          }}
+          className={`group border-2 border-dashed rounded-xl p-4 flex flex-col items-center justify-center cursor-pointer transition-all w-full text-left outline-none ${
+            value 
+              ? 'border-blue-500 bg-blue-50/20' 
+              : 'border-slate-300 hover:border-blue-400 bg-slate-50/50 hover:bg-slate-50'
+          } ${hasError ? 'border-red-400 bg-red-50/10' : ''}`}
+        >
+          <div className="flex flex-col items-center justify-center text-center w-full">
+            {value ? (
               <div className="w-10 h-10 rounded-xl bg-emerald-100 flex items-center justify-center text-emerald-700 mb-2">
                 <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                   <polyline points="20 6 9 17 4 12" />
@@ -97,14 +89,14 @@ export default function RegistroPublicoPage() {
                 </svg>
               </div>
             )}
-            <span className="text-xs text-slate-700 font-bold max-w-[200px] truncate block">
-              {fileName || 'Seleccionar archivo'}
+            <span className="text-xs text-slate-700 font-bold max-w-[180px] truncate block">
+              {value || 'Simular Adjunto'}
             </span>
-            <span className="text-[10px] text-slate-400 mt-0.5">
-              JPG, PNG o PDF (Máx 5MB)
+            <span className="text-[10px] text-slate-400 mt-0.5 font-medium">
+              {value ? '✓ Clic para quitar' : 'Clic para cargar arquetipo'}
             </span>
           </div>
-        </label>
+        </button>
         {hasError && (
           <span className="text-xs text-red-500 font-semibold">
             {errors[name]?.message as string}
@@ -115,7 +107,7 @@ export default function RegistroPublicoPage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 py-12 px-4 sm:px-6 lg:px-8 font-sans">
+    <div className="min-h-screen bg-slate-50 py-12 px-4 sm:px-6 lg:px-8 font-sans relative">
       <div className="max-w-4xl mx-auto">
         {/* Header */}
         <div className="text-center mb-10">
@@ -280,18 +272,18 @@ export default function RegistroPublicoPage() {
             <div className="border-b border-slate-100 pb-4 mb-6">
               <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2">
                 <span className="h-6 w-6 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center text-xs font-black">2</span>
-                Documentos Digitalizados
+                Documentos Digitalizados (Simulados)
               </h3>
-              <p className="text-xs text-slate-500 mt-1 font-medium">Adjunta las imágenes o archivos PDF correspondientes a tus credenciales.</p>
+              <p className="text-xs text-slate-500 mt-1 font-medium">Haz clic en cada tarjeta para simular la carga del documento digitalizado.</p>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
-              {renderFileInput('foto_carnet', 'Foto de Carnet')}
-              {renderFileInput('planilla_fpv', 'Planilla FPV')}
-              {renderFileInput('cedula_digitalizada', 'Cédula Digitalizada')}
-              {renderFileInput('rif_digitalizado', 'RIF Digitalizado')}
-              {renderFileInput('titulo_graduacion', 'Título de Graduación')}
-              {renderFileInput('comprobante_pago', 'Comprobante de Pago')}
+              {renderFileInput('foto_carnet', 'Foto de Carnet', 'foto_carnet_agremiado.png')}
+              {renderFileInput('planilla_fpv', 'Planilla FPV', 'planilla_fpv_registro.pdf')}
+              {renderFileInput('cedula_digitalizada', 'Cédula Digitalizada', 'cedula_identidad_copia.pdf')}
+              {renderFileInput('rif_digitalizado', 'RIF Digitalizado', 'rif_vigente_digital.pdf')}
+              {renderFileInput('titulo_graduacion', 'Título de Graduación', 'titulo_psicologo_graduado.pdf')}
+              {renderFileInput('comprobante_pago', 'Comprobante de Pago', 'comprobante_banco_bcv.pdf')}
             </div>
           </div>
 
@@ -404,6 +396,16 @@ export default function RegistroPublicoPage() {
             </button>
           </div>
         </form>
+      </div>
+
+      {/* Subtle Intranet Link in Bottom-Right Corner */}
+      <div className="fixed bottom-4 right-4 z-40">
+        <Link
+          href="/login"
+          className="text-xs font-semibold text-slate-400 hover:text-slate-600 bg-white/95 hover:bg-white border border-slate-200/60 hover:border-slate-350 px-3 py-1.5 rounded-lg shadow-xs transition-all tracking-wide"
+        >
+          Intranet
+        </Link>
       </div>
     </div>
   )

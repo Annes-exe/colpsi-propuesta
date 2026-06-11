@@ -1,5 +1,5 @@
-import { redirect } from 'next/navigation'
+import RegistroPublicoPage from './registro-publico/page'
 
 export default function RootPage() {
-  redirect('/dashboard')
+  return <RegistroPublicoPage />
 }

@@ -11,8 +11,6 @@ export interface ActionResponse {
   message?: string
 }
 
-const BUCKET_NAME = 'documentos_agremiados'
-
 // Metodo de pago mapper to DB constraints: 'transferencia', 'pago_movil', 'efectivo_usd', 'zelle', 'otro'
 const MAP_METODO_PAGO: Record<string, 'transferencia' | 'pago_movil' | 'efectivo_usd' | 'zelle' | 'otro'> = {
   'Transferencia Bancaria': 'transferencia',
@@ -22,7 +20,7 @@ const MAP_METODO_PAGO: Record<string, 'transferencia' | 'pago_movil' | 'efectivo
 }
 
 /**
- * Server Action to handle public self-registration.
+ * Server Action to handle public self-registration with placeholder files.
  */
 export async function registrarAgremiadoPublico(formData: FormData): Promise<ActionResponse> {
   try {
@@ -36,7 +34,7 @@ export async function registrarAgremiadoPublico(formData: FormData): Promise<Act
       numero_fpv: formData.get('numero_fpv'),
       colegio_pertenece: formData.get('colegio_pertenece'),
       
-      // Files
+      // Simulated files
       foto_carnet: formData.get('foto_carnet'),
       planilla_fpv: formData.get('planilla_fpv'),
       cedula_digitalizada: formData.get('cedula_digitalizada'),
@@ -60,7 +58,7 @@ export async function registrarAgremiadoPublico(formData: FormData): Promise<Act
     const data = parsed.data
     const cleanCedula = data.cedula.trim()
 
-    // 2. Initialize Supabase Service Role Client to bypass public RLS restrictions
+    // 2. Initialize Supabase Service Role Client
     const db = createServiceClient()
 
     // Verify if agremiado already exists by Cédula
@@ -79,42 +77,14 @@ export async function registrarAgremiadoPublico(formData: FormData): Promise<Act
       return { success: false, error: 'Esta cédula ya se encuentra registrada en el sistema.' }
     }
 
-    // 3. Upload files to Supabase Storage Documents bucket
-    const fileFields = [
-      { key: 'foto_carnet', file: data.foto_carnet as File },
-      { key: 'planilla_fpv', file: data.planilla_fpv as File },
-      { key: 'cedula_digitalizada', file: data.cedula_digitalizada as File },
-      { key: 'rif_digitalizado', file: data.rif_digitalizado as File },
-      { key: 'titulo_graduacion', file: data.titulo_graduacion as File },
-      { key: 'comprobante_pago', file: data.comprobante_pago as File },
-    ]
-
-    const urls: Record<string, string> = {}
-
-    for (const field of fileFields) {
-      const file = field.file
-      const fileExt = file.name.split('.').pop() || 'pdf'
-      const filePath = `${cleanCedula}/${field.key}_${Date.now()}.${fileExt}`
-
-      const fileBuffer = await file.arrayBuffer()
-      const { error: uploadError } = await db.storage
-        .from(BUCKET_NAME)
-        .upload(filePath, Buffer.from(fileBuffer), {
-          contentType: file.type,
-          upsert: true
-        })
-
-      if (uploadError) {
-        console.error(`Error uploading ${field.key}:`, uploadError)
-        return { success: false, error: `Error al subir el archivo: ${field.key}. Inténtelo de nuevo.` }
-      }
-
-      // Get public URL
-      const { data: publicUrlData } = db.storage
-        .from(BUCKET_NAME)
-        .getPublicUrl(filePath)
-
-      urls[field.key] = publicUrlData.publicUrl
+    // 3. Construct mock URLs for placeholder files
+    const urls = {
+      foto_carnet: `/placeholders/${data.foto_carnet}`,
+      planilla_fpv: `/placeholders/${data.planilla_fpv}`,
+      cedula_digitalizada: `/placeholders/${data.cedula_digitalizada}`,
+      rif_digitalizado: `/placeholders/${data.rif_digitalizado}`,
+      titulo_graduacion: `/placeholders/${data.titulo_graduacion}`,
+      comprobante_pago: `/placeholders/${data.comprobante_pago}`,
     }
 
     // 4. Calculate Payment amounts in VES using historical BCV rate
@@ -132,8 +102,6 @@ export async function registrarAgremiadoPublico(formData: FormData): Promise<Act
     const montoVes = amountUsd * tasa
 
     // 5. Insert new Agremiado record
-    // Since FPV unique key is mandatory in database, if they don't provide one,
-    // we prefix 'PENDIENTE-' + Cédula to keep constraints unique and clean.
     const cleanFpv = data.numero_fpv?.trim() 
       ? data.numero_fpv.trim() 
       : `PENDIENTE-${cleanCedula}`
@@ -163,11 +131,11 @@ export async function registrarAgremiadoPublico(formData: FormData): Promise<Act
     const isInscription = data.concepto_pago.toLowerCase().includes('inscripción') || data.concepto_pago.toLowerCase().includes('inscripcion')
     const mappedMetodo = MAP_METODO_PAGO[data.metodo_pago] || 'otro'
 
-    const notasStr = `Registro Público Inicial\n` +
+    const notasStr = `Registro Público Inicial (Archivos Simulados)\n` +
       `Concepto: ${data.concepto_pago}\n` +
       `Colegio: ${data.colegio_pertenece}\n` +
       `Dirección: ${data.direccion}\n\n` +
-      `Documentos Adjuntos:\n` +
+      `Documentos Adjuntos (Simulados):\n` +
       `- Foto Carnet: ${urls.foto_carnet}\n` +
       `- Planilla FPV: ${urls.planilla_fpv}\n` +
       `- Cédula Digitalizada: ${urls.cedula_digitalizada}\n` +
@@ -195,7 +163,6 @@ export async function registrarAgremiadoPublico(formData: FormData): Promise<Act
 
     if (pagoError || !newPago) {
       console.error('Error creating payment:', pagoError)
-      // Attempt rollback of created member
       await db.from('agremiados').delete().eq('id', newAgremiado.id)
       return { success: false, error: 'Error al registrar el pago en el sistema. Registro revertido.' }
     }
@@ -220,7 +187,7 @@ export async function registrarAgremiadoPublico(formData: FormData): Promise<Act
 
     return { 
       success: true, 
-      message: 'Registro recibido con éxito. Su solicitud será revisada por el administrador para la activación de su solvencia.' 
+      message: 'Registro recibido con éxito (Simulado). Su solicitud será revisada por el administrador para la activación de su solvencia.' 
     }
   } catch (err: any) {
     console.error('Unexpected error in registration server action:', err)

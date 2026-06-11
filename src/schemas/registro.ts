@@ -1,31 +1,5 @@
 import { z } from 'zod'
 
-const isClient = typeof window !== 'undefined'
-
-const fileValidation = z.any()
-  .refine((val) => {
-    if (!val) return false
-    if (isClient && val instanceof FileList) return val.length > 0
-    if (val instanceof File) return val.name !== '' && val.size > 0
-    return false
-  }, 'El archivo digitalizado es obligatorio')
-  .refine((val) => {
-    let file: File | null = null
-    if (isClient && val instanceof FileList) file = val[0]
-    else if (val instanceof File) file = val
-    
-    if (!file) return false
-    return file.size <= 5 * 1024 * 1024
-  }, 'El archivo debe pesar menos de 5MB')
-  .refine((val) => {
-    let file: File | null = null
-    if (isClient && val instanceof FileList) file = val[0]
-    else if (val instanceof File) file = val
-    
-    if (!file) return false
-    return ['image/jpeg', 'image/png', 'application/pdf'].includes(file.type)
-  }, 'Formato inválido. Solo se admiten JPG, PNG o PDF')
-
 export const registroPublicoSchema = z.object({
   nombre: z.string().min(2, 'El nombre debe tener al menos 2 caracteres').max(100),
   apellido: z.string().min(2, 'El apellido debe tener al menos 2 caracteres').max(100),
@@ -38,13 +12,13 @@ export const registroPublicoSchema = z.object({
   numero_fpv: z.string().optional().or(z.literal('')),
   colegio_pertenece: z.string().min(2, 'Debe indicar a qué colegio pertenece'),
   
-  // Archivos
-  foto_carnet: fileValidation,
-  planilla_fpv: fileValidation,
-  cedula_digitalizada: fileValidation,
-  rif_digitalizado: fileValidation,
-  titulo_graduacion: fileValidation,
-  comprobante_pago: fileValidation,
+  // Archivos (Simulados con placeholders estéticos)
+  foto_carnet: z.string().min(1, 'La foto de carnet es obligatoria (simulada)'),
+  planilla_fpv: z.string().min(1, 'La planilla FPV es obligatoria (simulada)'),
+  cedula_digitalizada: z.string().min(1, 'La cédula digitalizada es obligatoria (simulada)'),
+  rif_digitalizado: z.string().min(1, 'El RIF digitalizado es obligatorio (simulada)'),
+  titulo_graduacion: z.string().min(1, 'El título de graduación es obligatorio (simulado)'),
+  comprobante_pago: z.string().min(1, 'El comprobante de pago es obligatorio (simulado)'),
   
   // Datos de Pago
   fecha_pago: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Formato de fecha: YYYY-MM-DD'),
