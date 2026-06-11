@@ -108,20 +108,84 @@ export async function registrarPago(rawData: PagoInput): Promise<ActionResult> {
   return { success: true, pagoId: pago.id }
 }
 
-// ─── Mock de Tasa BCV ─────────────────────────────────────────────────────────
+// ─── Tasa BCV (DolarApi) ──────────────────────────────────────────────────────
+
+// Estructura del JSON que devuelve la API para Venezuela
+interface DolarApiResponse {
+  moneda: string;
+  nombre: string;
+  compra: number;
+  venta: number;
+  promedio: number; // Este es el valor que nos interesa
+  fechaActualizacion: string;
+}
+
+/**
+ * formatearFechaTasa
+ *
+ * Convierte una fecha ISO "YYYY-MM-DD..." a formato legible "DD/MM/YYYY".
+ */
+function formatearFechaTasa(fechaIso: string): string {
+  try {
+    const datePart = fechaIso.split('T')[0]
+    const parts = datePart?.split('-')
+    if (parts && parts.length === 3) {
+      const [y, m, d] = parts
+      return `${d}/${m}/${y}`
+    }
+  } catch (e) {
+    console.error("Error al formatear fecha de tasa:", e)
+  }
+  return ''
+}
+
+/**
+ * obtenerTasaBCV
+ *
+ * Consume el endpoint oficial de DolarAPI para Venezuela.
+ * Configura la revalidación cada hora para evitar saturación de la API.
+ */
+export async function obtenerTasaBCV(): Promise<{ promedio: number; fechaActualizacion: string } | null> {
+  try {
+    const respuesta = await fetch("https://ve.dolarapi.com/v1/dolares/oficial", {
+      next: { revalidate: 3600 }
+    });
+
+    if (!respuesta.ok) {
+      throw new Error("Error al consultar DolarAPI");
+    }
+
+    const data: DolarApiResponse = await respuesta.json();
+    return {
+      promedio: data.promedio,
+      fechaActualizacion: data.fechaActualizacion
+    };
+  } catch (error) {
+    console.error("Error en el fetch de la tasa cambiaria:", error);
+    return null;
+  }
+}
 
 /**
  * fetchTasaBCV
  *
- * Obtiene la tasa de cambio BCV para una fecha dada.
- * Actualmente retorna un valor simulado.
- * TODO: Integrar con https://pydolarve.org/api/v1/dollar?page=bcv
+ * Wrapper que intenta usar obtenerTasaBCV() y cae en un simulador si falla.
  */
 export async function fetchTasaBCV(fecha: string): Promise<{ tasa: number; fuente: string }> {
+  const tasaInfo = await obtenerTasaBCV()
+  if (tasaInfo !== null) {
+    const fechaFormateada = formatearFechaTasa(tasaInfo.fechaActualizacion)
+    const fuente = fechaFormateada
+      ? `Oficial BCV del ${fechaFormateada}`
+      : 'Oficial BCV'
+    return { tasa: tasaInfo.promedio, fuente }
+  }
+
+  // Fallback si la API falla
   void fecha
   const seed = new Date(fecha).getDate()
   const tasa = Math.round((36 + (seed % 5) * 0.1) * 100) / 100
-  return { tasa, fuente: 'Mock BCV (pendiente integración real)' }
+  return { tasa, fuente: 'BCV (Simulada por fallo de API)' }
 }
 
-export type { PagoInput }
+
