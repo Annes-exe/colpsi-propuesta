@@ -41,6 +41,7 @@ const navItems = [
       {
         href: '/dashboard/solvencias',
         label: 'Solvencias',
+        badge: 'Desarrollo',
         icon: (
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <path d="M9 11l3 3L22 4"/>
@@ -51,6 +52,7 @@ const navItems = [
       {
         href: '/dashboard/pagos',
         label: 'Pagos',
+        badge: 'Desarrollo',
         icon: (
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <rect x="1" y="4" width="22" height="16" rx="2" ry="2"/>
