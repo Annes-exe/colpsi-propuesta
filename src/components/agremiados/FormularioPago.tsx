@@ -12,6 +12,7 @@ import {
   MONTO_POR_ANIO_POST_USD,
 } from '@/hooks/useCalculadoraDeuda'
 import type { DeudaCalculada } from '@/hooks/useCalculadoraDeuda'
+import { createClient } from '@/lib/supabase/client'
 
 interface FormularioPagoProps {
   agremiado_id: string
@@ -74,6 +75,13 @@ export function FormularioPago({
   const [loadingTasa, setLoadingTasa] = useState(false)
   const [montoUSD, setMontoUSD] = useState<number>(0)
   const [custodiaYear, setCustodiaYear] = useState<number>(new Date().getFullYear())
+  const [isCustomTasa, setIsCustomTasa] = useState(false)
+  const [tasaHistory, setTasaHistory] = useState<{ fecha: string; tasa: number }[]>([])
+  const [comprobanteName, setComprobanteName] = useState<string | null>(null)
+
+  const handleSimulatedComprobanteUpload = () => {
+    setComprobanteName(comprobanteName ? null : 'comprobante_pago_referencia.pdf')
+  }
 
   const {
     register,
@@ -104,6 +112,7 @@ export function FormularioPago({
   const tipoPago = watch('tipo_pago')
   const aniosSeleccionados = watch('anios_correspondientes') || []
   const mesesCustodiaSeleccionados = watch('meses_custodia') || []
+  const tasaCambioVal = watch('tasa_cambio')
 
   // ── Cargar tasa al cambiar fecha ──────────────────────────────────────────
   const cargarTasa = useCallback(async (fecha: string) => {
@@ -113,22 +122,54 @@ export function FormularioPago({
       const res = await fetchTasaBCV(fecha)
       setTasa(res.tasa)
       setTasaFuente(res.fuente)
-      setValue('tasa_cambio', res.tasa, { shouldValidate: true })
+      if (!isCustomTasa) {
+        setValue('tasa_cambio', res.tasa, { shouldValidate: true })
+      }
     } catch {
       setTasa(0)
     } finally {
       setLoadingTasa(false)
     }
-  }, [setValue])
+  }, [setValue, isCustomTasa])
 
   useEffect(() => {
     cargarTasa(fechaPago)
   }, [fechaPago, cargarTasa])
 
+  // ── Cargar historial de tasas registradas ──────────────────────────────────
+  useEffect(() => {
+    const fetchHistory = async () => {
+      try {
+        const supabase = createClient()
+        const { data } = await supabase
+          .from('pagos')
+          .select('fecha_pago, tasa_cambio')
+          .order('fecha_pago', { ascending: false })
+          .limit(50)
+        
+        if (data) {
+          const seenDates = new Set<string>()
+          const uniqueHistory: { fecha: string; tasa: number }[] = []
+          for (const item of data) {
+            if (!seenDates.has(item.fecha_pago)) {
+              seenDates.add(item.fecha_pago)
+              uniqueHistory.push({ fecha: item.fecha_pago, tasa: item.tasa_cambio })
+            }
+            if (uniqueHistory.length >= 5) break
+          }
+          setTasaHistory(uniqueHistory)
+        }
+      } catch (err) {
+        console.error('Error fetching rate history:', err)
+      }
+    }
+    fetchHistory()
+  }, [])
+
   // ── Calcular USD en tiempo real ────────────────────────────────────────────
   useEffect(() => {
-    setMontoUSD(convertirVESaUSD(Number(montoVES) || 0, tasa))
-  }, [montoVES, tasa])
+    setMontoUSD(convertirVESaUSD(Number(montoVES) || 0, tasaCambioVal))
+  }, [montoVES, tasaCambioVal])
 
   // ── Helper para cortesía de custodia ──────────────────────────────────────
   const esMesCortesia = useCallback((year: number, monthIndex: number) => {
@@ -327,26 +368,95 @@ export function FormularioPago({
             </div>
 
             <div className="flex flex-col">
-              <label className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Tasa Cambiaria BCV</label>
-              <div className={`px-3 py-2 rounded-lg border text-sm flex flex-col justify-center min-h-[38px] ${
-                tasa > 0 ? 'bg-sky-50/50 border-sky-100' : 'bg-slate-50 border-slate-200'
-              }`}>
-                {loadingTasa ? (
-                  <span className="text-xs text-slate-400 flex items-center gap-1.5">
-                    <span className="w-2.5 h-2.5 rounded-full border-2 border-slate-300 border-t-blue-600 animate-spin" />
-                    Consultando...
-                  </span>
-                ) : tasa > 0 ? (
-                  <>
-                    <span className="font-mono font-bold text-slate-900">Bs. {tasa.toFixed(2)}</span>
-                    <span className="text-[9px] text-slate-500 mt-0.5 leading-none">{tasaFuente}</span>
-                  </>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Tasa Cambiaria</label>
+                <label className="inline-flex items-center gap-1 text-[11px] font-semibold text-blue-600 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={isCustomTasa}
+                    onChange={(e) => {
+                      const checked = e.target.checked
+                      setIsCustomTasa(checked)
+                      if (!checked) {
+                        setValue('tasa_cambio', tasa || 0, { shouldValidate: true })
+                      }
+                    }}
+                    className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                  />
+                  <span>Tasa manual</span>
+                </label>
+              </div>
+
+              <div className="relative">
+                {!isCustomTasa ? (
+                  <div className={`px-3 py-2 rounded-lg border text-sm flex flex-col justify-center min-h-[38px] ${
+                    tasa > 0 ? 'bg-sky-50/50 border-sky-100' : 'bg-slate-50 border-slate-200'
+                  }`}>
+                    {loadingTasa ? (
+                      <span className="text-xs text-slate-400 flex items-center gap-1.5">
+                        <span className="w-2.5 h-2.5 rounded-full border-2 border-slate-300 border-t-blue-600 animate-spin" />
+                        Consultando...
+                      </span>
+                    ) : tasa > 0 ? (
+                      <>
+                        <span className="font-mono font-bold text-slate-900">Bs. {tasa.toFixed(2)}</span>
+                        <span className="text-[9px] text-slate-500 mt-0.5 leading-none">{tasaFuente}</span>
+                      </>
+                    ) : (
+                      <span className="text-xs text-slate-400 italic">Elige una fecha</span>
+                    )}
+                  </div>
                 ) : (
-                  <span className="text-xs text-slate-400 italic">Elige una fecha</span>
+                  <Controller
+                    name="tasa_cambio"
+                    control={control}
+                    render={({ field }) => (
+                      <input
+                        type="number"
+                        step="0.01"
+                        placeholder="0.00"
+                        className={`w-full px-3 py-2 rounded-lg border text-sm text-slate-900 bg-white outline-hidden focus:border-blue-500 font-mono font-bold ${
+                          errors.tasa_cambio ? 'border-red-400 bg-red-50/50' : 'border-slate-200'
+                        }`}
+                        {...field}
+                        onChange={(e) => {
+                          const val = parseFloat(e.target.value) || 0
+                          field.onChange(val)
+                        }}
+                      />
+                    )}
+                  />
                 )}
+                {errors.tasa_cambio && <span className="text-[11px] text-red-500 mt-1">{errors.tasa_cambio.message}</span>}
               </div>
             </div>
           </div>
+
+          {/* Historial de Tasas Recientes */}
+          {tasaHistory.length > 0 && (
+            <div className="flex flex-col bg-slate-50 rounded-lg p-2.5 border border-slate-200">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5 block">
+                Tasas registradas recientemente
+              </span>
+              <div className="flex flex-wrap gap-1.5">
+                {tasaHistory.map((item) => (
+                  <button
+                    key={item.fecha}
+                    type="button"
+                    onClick={() => {
+                      setIsCustomTasa(true)
+                      setValue('tasa_cambio', item.tasa, { shouldValidate: true })
+                    }}
+                    className="text-[11px] font-medium px-2 py-1 bg-white border border-slate-200 hover:border-blue-500 rounded-md font-mono text-slate-700 hover:text-blue-600 transition-colors flex items-center gap-1 cursor-pointer"
+                    title={`Click para aplicar tasa de fecha ${item.fecha}`}
+                  >
+                    <span>{new Date(item.fecha + 'T00:00:00').toLocaleDateString('es-VE', { day: 'numeric', month: 'short' })}:</span>
+                    <strong className="text-slate-950 font-bold">Bs. {item.tasa.toFixed(2)}</strong>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Método + Referencia */}
           <div className="grid grid-cols-2 gap-4">
@@ -605,6 +715,44 @@ export function FormularioPago({
               </div>
             </div>
           )}
+
+          {/* Adjuntar Comprobante (Estético / Mock placeholder) */}
+          <div className="flex flex-col gap-2">
+            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Comprobante de Pago (Estético)</span>
+            <button
+              type="button"
+              onClick={handleSimulatedComprobanteUpload}
+              className={`w-full p-4 rounded-xl border border-dashed text-left flex items-center justify-between transition-all ${
+                comprobanteName
+                  ? 'border-emerald-300 bg-emerald-50/30 text-emerald-800'
+                  : 'border-slate-300 bg-slate-50 hover:bg-slate-100/70 text-slate-600'
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                {comprobanteName ? (
+                  <div className="w-10 h-10 rounded-xl bg-emerald-100 flex items-center justify-center text-emerald-700">
+                    <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                      <polyline points="20 6 9 17 4 12" />
+                    </svg>
+                  </div>
+                ) : (
+                  <div className="w-10 h-10 rounded-xl bg-slate-200 flex items-center justify-center text-slate-500">
+                    <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                      <polyline points="14 2 14 8 20 8" />
+                    </svg>
+                  </div>
+                )}
+                <div>
+                  <div className="text-xs font-bold">{comprobanteName ? '✓ Comprobante Cargado' : 'Adjuntar Comprobante'}</div>
+                  <div className="text-[10px] text-slate-400 mt-0.5">{comprobanteName ? comprobanteName : 'Formatos: PDF, JPG, PNG (Máx 5MB)'}</div>
+                </div>
+              </div>
+              {comprobanteName && (
+                <span className="text-[10px] font-bold text-red-500 hover:underline">Quitar</span>
+              )}
+            </button>
+          </div>
 
           {/* Notas */}
           <div className="flex flex-col">

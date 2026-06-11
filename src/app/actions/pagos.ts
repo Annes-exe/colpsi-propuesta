@@ -190,11 +190,70 @@ export async function obtenerTasaBCV(): Promise<{ promedio: number; fechaActuali
 }
 
 /**
+ * obtenerTasaBCVHistorico
+ *
+ * Consulta la tasa histórica oficial del BCV para una fecha específica (formato YYYY-MM-DD).
+ */
+export async function obtenerTasaBCVHistorico(fecha: string): Promise<{ promedio: number; fechaActualizacion: string } | null> {
+  try {
+    if (!fecha || !/^\d{4}-\d{2}-\d{2}$/.test(fecha)) return null
+    const [anio, mes, dia] = fecha.split('-')
+    const url = `https://ve.dolarapi.com/v1/historicos/dolares/${anio}/${mes}/${dia}`
+    
+    const respuesta = await fetch(url, {
+      next: { revalidate: 3600 }
+    })
+
+    if (!respuesta.ok) {
+      throw new Error(`Error en DolarAPI histórico: ${respuesta.status}`)
+    }
+
+    const data = await respuesta.json()
+    
+    if (Array.isArray(data)) {
+      const oficial = data.find(
+        (x: any) => x.fuente?.toLowerCase() === 'oficial' || x.moneda?.toLowerCase() === 'oficial'
+      )
+      if (oficial) {
+        return {
+          promedio: oficial.promedio,
+          fechaActualizacion: oficial.fechaActualizacion || fecha
+        }
+      }
+      if (data[0]) {
+        return {
+          promedio: data[0].promedio,
+          fechaActualizacion: data[0].fechaActualizacion || fecha
+        }
+      }
+    } else if (data && typeof data === 'object') {
+      return {
+        promedio: data.promedio,
+        fechaActualizacion: data.fechaActualizacion || fecha
+      }
+    }
+    return null
+  } catch (error) {
+    console.error(`Error en fetch de tasa histórica para ${fecha}:`, error)
+    return null
+  }
+}
+
+/**
  * fetchTasaBCV
  *
- * Wrapper que intenta usar obtenerTasaBCV() y cae en un simulador si falla.
+ * Wrapper que intenta usar obtenerTasaBCVHistorico(fecha) y cae en la tasa actual o simulación si falla.
  */
 export async function fetchTasaBCV(fecha: string): Promise<{ tasa: number; fuente: string }> {
+  // 1. Intentar tasa histórica
+  const histInfo = await obtenerTasaBCVHistorico(fecha)
+  if (histInfo !== null) {
+    const fechaFormateada = formatearFechaTasa(histInfo.fechaActualizacion)
+    const fuente = `Histórica BCV del ${fechaFormateada || fecha}`
+    return { tasa: histInfo.promedio, fuente }
+  }
+
+  // 2. Fallback a tasa actual
   const tasaInfo = await obtenerTasaBCV()
   if (tasaInfo !== null) {
     const fechaFormateada = formatearFechaTasa(tasaInfo.fechaActualizacion)
@@ -204,8 +263,7 @@ export async function fetchTasaBCV(fecha: string): Promise<{ tasa: number; fuent
     return { tasa: tasaInfo.promedio, fuente }
   }
 
-  // Fallback si la API falla
-  void fecha
+  // 3. Fallback final simulado
   const seed = new Date(fecha).getDate()
   const tasa = Math.round((36 + (seed % 5) * 0.1) * 100) / 100
   return { tasa, fuente: 'BCV (Simulada por fallo de API)' }
