@@ -188,7 +188,7 @@ export function AgreiadosDataGrid() {
                   </td>
                   <td>
                     <div style={{ fontWeight: 600, color: '#0f172a' }}>
-                      {row.apellidos}, {row.nombres}
+                      {row.apellidos ?? '—'}, {row.nombres ?? '—'}
                     </div>
                   </td>
                   <td style={{ color: '#64748b', fontSize: 13 }}>
@@ -215,7 +215,7 @@ export function AgreiadosDataGrid() {
                   </td>
                   <td>
                     <span style={{ fontSize: 12, color: '#64748b' }}>
-                      {row.total_anios_solventes > 0
+                      {(row.total_anios_solventes ?? 0) > 0
                         ? `${row.total_anios_solventes} año${row.total_anios_solventes !== 1 ? 's' : ''}`
                         : <span style={{ color: '#94a3b8' }}>Ninguno</span>
                       }
