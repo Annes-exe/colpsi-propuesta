@@ -9,22 +9,19 @@ import {
   convertirVESaUSD,
   formatUSD,
   formatVES,
-  MONTO_PRE_BLOCK_USD,
   MONTO_POR_ANIO_POST_USD,
 } from '@/hooks/useCalculadoraDeuda'
 import type { DeudaCalculada } from '@/hooks/useCalculadoraDeuda'
-
-// ─── Types ────────────────────────────────────────────────────────────────────
 
 interface FormularioPagoProps {
   agremiado_id: string
   nombreCompleto: string
   deuda: DeudaCalculada
+  fecha_recepcion_titulo?: string | null
+  fecha_inscripcion?: string | null
   onSuccess?: () => void
   onClose?: () => void
 }
-
-// ─── Constants ────────────────────────────────────────────────────────────────
 
 const METODOS_PAGO = [
   { value: 'transferencia', label: '🏦 Transferencia Bancaria' },
@@ -34,62 +31,41 @@ const METODOS_PAGO = [
   { value: 'otro',         label: '🔖 Otro' },
 ] as const
 
-// ─── Design Tokens ────────────────────────────────────────────────────────────
-
-const T = {
-  bg: '#ffffff',
-  border: '#e2e8f0',
-  borderFocus: '#2563eb',
-  radius: 10,
-  radiusSm: 7,
-  label: { fontSize: 12, fontWeight: 700, color: '#64748b', textTransform: 'uppercase' as const, letterSpacing: '0.06em', marginBottom: 6, display: 'block' as const },
-  input: {
-    width: '100%', boxSizing: 'border-box' as const,
-    padding: '10px 12px', borderRadius: 9, border: '1.5px solid #e2e8f0',
-    fontSize: 14, color: '#0f172a', background: '#f8fafc',
-    outline: 'none', fontFamily: 'inherit', transition: 'border-color 0.15s',
-  },
-  inputError: { borderColor: '#f87171', background: '#fef2f2' },
-  errorText: { color: '#dc2626', fontSize: 11.5, marginTop: 4, display: 'block' as const },
-  field: { display: 'flex' as const, flexDirection: 'column' as const, gap: 0 },
-  section: { display: 'flex' as const, flexDirection: 'column' as const, gap: 14 },
-  sectionTitle: { fontSize: 11, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase' as const, letterSpacing: '0.08em', paddingBottom: 10, borderBottom: '1px solid #f1f5f9', marginBottom: 2 },
-} as const
+const MESES_NOMBRES = [
+  'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+  'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
+]
 
 // Helper para formatear entrada de VES
 function formatVESInput(value: string): string {
-  // Elimina cualquier carácter que no sea número o punto
   let clean = value.replace(/[^0-9.]/g, '')
-
-  // Si hay más de un punto, dejamos solo el primero
   const parts = clean.split('.')
   if (parts.length > 2) {
     clean = parts[0] + '.' + parts.slice(1).join('')
   }
-
   let [integer, decimal] = clean.split('.')
-
-  // Evitar ceros a la izquierda inválidos
   if (integer && integer.length > 1 && integer.startsWith('0')) {
     integer = integer.replace(/^0+/, '')
     if (integer === '') integer = '0'
   }
-
-  // Formatear parte entera con comas
   if (integer) {
     integer = integer.replace(/\B(?=(\d{3})+(?!\d))/g, ',')
   }
-
   if (decimal !== undefined) {
     return `${integer || '0'}.${decimal.slice(0, 2)}`
   }
-
   return integer || ''
 }
 
-// ─── Component ────────────────────────────────────────────────────────────────
-
-export function FormularioPago({ agremiado_id, nombreCompleto, deuda, onSuccess, onClose }: FormularioPagoProps) {
+export function FormularioPago({
+  agremiado_id,
+  nombreCompleto,
+  deuda,
+  fecha_recepcion_titulo,
+  fecha_inscripcion,
+  onSuccess,
+  onClose,
+}: FormularioPagoProps) {
   const [isPending, startTransition] = useTransition()
   const [serverError, setServerError] = useState<string | null>(null)
   const [successMsg, setSuccessMsg] = useState<string | null>(null)
@@ -97,6 +73,7 @@ export function FormularioPago({ agremiado_id, nombreCompleto, deuda, onSuccess,
   const [tasaFuente, setTasaFuente] = useState<string>('')
   const [loadingTasa, setLoadingTasa] = useState(false)
   const [montoUSD, setMontoUSD] = useState<number>(0)
+  const [custodiaYear, setCustodiaYear] = useState<number>(new Date().getFullYear())
 
   const {
     register,
@@ -116,13 +93,17 @@ export function FormularioPago({ agremiado_id, nombreCompleto, deuda, onSuccess,
       referencia: '',
       metodo_pago: 'transferencia',
       notas: '',
+      tipo_pago: 'solvencia',
       anios_correspondientes: [],
+      meses_custodia: [],
     },
   })
 
   const fechaPago = watch('fecha_pago')
   const montoVES = watch('monto_ves')
-  const aniosSeleccionados = watch('anios_correspondientes')
+  const tipoPago = watch('tipo_pago')
+  const aniosSeleccionados = watch('anios_correspondientes') || []
+  const mesesCustodiaSeleccionados = watch('meses_custodia') || []
 
   // ── Cargar tasa al cambiar fecha ──────────────────────────────────────────
   const cargarTasa = useCallback(async (fecha: string) => {
@@ -133,35 +114,85 @@ export function FormularioPago({ agremiado_id, nombreCompleto, deuda, onSuccess,
       setTasa(res.tasa)
       setTasaFuente(res.fuente)
       setValue('tasa_cambio', res.tasa, { shouldValidate: true })
-    } catch { setTasa(0) }
-    finally { setLoadingTasa(false) }
+    } catch {
+      setTasa(0)
+    } finally {
+      setLoadingTasa(false)
+    }
   }, [setValue])
 
-  useEffect(() => { cargarTasa(fechaPago) }, [fechaPago, cargarTasa])
+  useEffect(() => {
+    cargarTasa(fechaPago)
+  }, [fechaPago, cargarTasa])
 
   // ── Calcular USD en tiempo real ────────────────────────────────────────────
   useEffect(() => {
     setMontoUSD(convertirVESaUSD(Number(montoVES) || 0, tasa))
   }, [montoVES, tasa])
 
-  // ── Monto esperado según años elegidos ────────────────────────────────────
+  // ── Helper para cortesía de custodia ──────────────────────────────────────
+  const esMesCortesia = useCallback((year: number, monthIndex: number) => {
+    const inicioStr = fecha_recepcion_titulo || fecha_inscripcion
+    if (!inicioStr) return false
+    const inicio = new Date(inicioStr + 'T00:00:00')
+    const finCortesia = new Date(inicio)
+    finCortesia.setMonth(finCortesia.getMonth() + 3)
+
+    const inicioDelMes = new Date(year, monthIndex, 1)
+    return inicioDelMes < finCortesia
+  }, [fecha_recepcion_titulo, fecha_inscripcion])
+
+  // ── Monto esperado según tipo de pago y selecciones ────────────────────────
   const montoEsperadoUSD = (() => {
-    const cantPost = aniosSeleccionados.filter((a) => a >= 2023).length
-    if (deuda.tarifaNivelacionAplicada && cantPost === deuda.aniosPendientesPost.length) {
-      return 80.00
+    if (tipoPago === 'solvencia') {
+      const cantPost = aniosSeleccionados.filter((a) => a >= 2023).length
+      if (deuda.tarifaNivelacionAplicada && cantPost === deuda.aniosPendientesPost.length) {
+        return 80.00
+      }
+      return cantPost * MONTO_POR_ANIO_POST_USD
     }
-    return cantPost * MONTO_POR_ANIO_POST_USD
+    if (tipoPago === 'inscripcion') {
+      return 30.00
+    }
+    if (tipoPago === 'carnet') {
+      return 15.00
+    }
+    if (tipoPago === 'custodia') {
+      // Solo sumamos los meses que NO sean de cortesía
+      const billedCount = mesesCustodiaSeleccionados.filter((m) => {
+        const [y, mIdx] = m.split('-').map(Number)
+        return !esMesCortesia(y, mIdx - 1)
+      }).length
+      return billedCount * 5.00
+    }
+    return 0
   })()
 
-  // ── Toggle año individual ─────────────────────────────────────────────────
+  // ── Toggle año individual (Solvencia) ──────────────────────────────────────
   const toggleAnio = (anio: number) => {
     const cur = aniosSeleccionados
-    setValue('anios_correspondientes',
-      cur.includes(anio) ? cur.filter(a => a !== anio) : [...cur, anio],
-      { shouldValidate: true })
+    setValue(
+      'anios_correspondientes',
+      cur.includes(anio) ? cur.filter((a) => a !== anio) : [...cur, anio],
+      { shouldValidate: true }
+    )
   }
 
+  // ── Toggle mes individual (Custodia) ───────────────────────────────────────
+  const toggleMesCustodia = (mesStr: string) => {
+    const cur = mesesCustodiaSeleccionados
+    setValue(
+      'meses_custodia',
+      cur.includes(mesStr) ? cur.filter((m) => m !== mesStr) : [...cur, mesStr],
+      { shouldValidate: true }
+    )
+  }
 
+  // ── Al cambiar de tipo de pago, limpiar selecciones ────────────────────────
+  useEffect(() => {
+    setValue('anios_correspondientes', [])
+    setValue('meses_custodia', [])
+  }, [tipoPago, setValue])
 
   // ── Submit ─────────────────────────────────────────────────────────────────
   const onSubmit = (data: PagoInput) => {
@@ -182,24 +213,13 @@ export function FormularioPago({ agremiado_id, nombreCompleto, deuda, onSuccess,
   const isLoading = isPending || isSubmitting
   const montoMatch = montoEsperadoUSD > 0 && Math.abs(montoUSD - montoEsperadoUSD) < 1
 
-  // ── Input style helper ─────────────────────────────────────────────────────
-  const inputStyle = (_name: string, hasError: boolean): React.CSSProperties => ({
-    ...T.input,
-    ...(hasError ? T.inputError : {}),
-  })
-
   return (
     <>
       {/* Backdrop */}
       <div
         role="presentation"
         onClick={onClose}
-        style={{
-          position: 'fixed', inset: 0, zIndex: 1000,
-          background: 'rgba(15,23,42,0.5)',
-          backdropFilter: 'blur(4px)',
-          animation: 'fadeIn 0.2s ease',
-        }}
+        className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs transition-opacity duration-300"
       />
 
       {/* Drawer */}
@@ -207,432 +227,474 @@ export function FormularioPago({ agremiado_id, nombreCompleto, deuda, onSuccess,
         role="dialog"
         aria-modal="true"
         aria-label="Registrar pago"
-        style={{
-          position: 'fixed', top: 0, right: 0, bottom: 0, zIndex: 1001,
-          width: '100%', maxWidth: 480,
-          background: '#fff',
-          boxShadow: '-8px 0 40px rgba(0,0,0,0.18)',
-          display: 'flex', flexDirection: 'column',
-          animation: 'slideInRight 0.28s cubic-bezier(0.16,1,0.3,1)',
-          fontFamily: "'Inter', system-ui, sans-serif",
-        }}
+        className="fixed inset-y-0 right-0 z-50 w-full max-w-md bg-white shadow-2xl flex flex-col font-sans transition-transform duration-300 transform translate-x-0"
       >
-        {/* ── Header ──────────────────────────────────────────────────────── */}
-        <div style={{
-          padding: '20px 24px',
-          borderBottom: '1px solid #f1f5f9',
-          display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between',
-          flexShrink: 0,
-          background: 'linear-gradient(135deg, #1e293b, #0f172a)',
-        }}>
+        {/* Header */}
+        <div className="px-6 py-5 flex items-start justify-between flex-shrink-0 bg-gradient-to-r from-slate-900 to-slate-800 text-white">
           <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
-              <div style={{
-                width: 32, height: 32, borderRadius: '50%',
-                background: 'linear-gradient(135deg, #2563eb, #0ea5e9)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                flexShrink: 0,
-              }}>
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5">
-                  <rect x="1" y="4" width="22" height="16" rx="2" /><line x1="1" y1="10" x2="23" y2="10" />
+            <div className="flex items-center gap-2.5 mb-1">
+              <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center shadow-inner">
+                <svg className="w-4 h-4 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                  <rect x="1" y="4" width="22" height="16" rx="2" />
+                  <line x1="1" y1="10" x2="23" y2="10" />
                 </svg>
               </div>
-              <h2 style={{ fontSize: 17, fontWeight: 800, color: '#fff', margin: 0 }}>Registrar Pago</h2>
+              <h2 className="text-base font-extrabold tracking-tight m-0">Registrar Pago</h2>
             </div>
-            <p style={{ fontSize: 13, color: '#94a3b8', margin: 0, paddingLeft: 42 }}>{nombreCompleto}</p>
+            <p className="text-xs text-slate-400 pl-10 m-0">{nombreCompleto}</p>
           </div>
           <button
             type="button"
             onClick={onClose}
             aria-label="Cerrar"
-            style={{
-              width: 32, height: 32, borderRadius: 8, border: '1px solid rgba(255,255,255,0.1)',
-              background: 'rgba(255,255,255,0.07)', color: '#94a3b8',
-              cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-              flexShrink: 0, transition: 'all 0.15s',
-            }}
+            className="w-8 h-8 rounded-lg border border-slate-700 bg-slate-800/40 text-slate-400 hover:text-white hover:bg-slate-700 cursor-pointer flex items-center justify-center transition-colors"
           >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-              <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+              <line x1="18" y1="6" x2="6" y2="18" />
+              <line x1="6" y1="6" x2="18" y2="18" />
             </svg>
           </button>
         </div>
 
-        {/* ── Deuda banner ─────────────────────────────────────────────────── */}
+        {/* Deuda General Info Banner */}
         {!deuda.esSolvente && (
-          <div style={{
-            padding: '12px 24px',
-            background: 'linear-gradient(90deg, #fef2f2, #fff)',
-            borderBottom: '1px solid #fee2e2',
-            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-            flexShrink: 0,
-          }}>
-            <span style={{ fontSize: 12.5, color: '#64748b', fontWeight: 500 }}>Deuda total pendiente</span>
-            <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 16, fontWeight: 800, color: '#dc2626' }}>
-              {formatUSD(deuda.totalUSD)}
-            </span>
+          <div className="px-6 py-3 bg-red-50 border-b border-red-100 flex items-center justify-between text-xs font-semibold text-slate-600">
+            <span>Deuda pendiente de Solvencia:</span>
+            <span className="font-mono text-sm font-extrabold text-red-600">{formatUSD(deuda.totalUSD)}</span>
           </div>
         )}
 
-        {/* ── Alerts ───────────────────────────────────────────────────────── */}
+        {/* Server Errors / Alerts */}
         {serverError && (
-          <div style={{
-            margin: '12px 24px 0', padding: '10px 14px', borderRadius: 9,
-            background: '#fef2f2', border: '1px solid #fecaca',
-            display: 'flex', alignItems: 'center', gap: 10, fontSize: 13, color: '#dc2626', flexShrink: 0,
-          }} role="alert">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ flexShrink: 0 }}>
-              <circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" />
+          <div className="mx-6 mt-4 p-3 rounded-lg bg-red-50 border border-red-200 flex items-center gap-2.5 text-xs text-red-600" role="alert">
+            <svg className="w-4 h-4 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <circle cx="12" cy="12" r="10" />
+              <line x1="12" y1="8" x2="12" y2="12" />
+              <line x1="12" y1="16" x2="12.01" y2="16" />
             </svg>
-            {serverError}
+            <span className="font-medium">{serverError}</span>
           </div>
         )}
         {successMsg && (
-          <div style={{
-            margin: '12px 24px 0', padding: '10px 14px', borderRadius: 9,
-            background: '#f0fdf4', border: '1px solid #bbf7d0',
-            display: 'flex', alignItems: 'center', gap: 10, fontSize: 13, color: '#16a34a', flexShrink: 0,
-          }} role="status">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ flexShrink: 0 }}>
+          <div className="mx-6 mt-4 p-3 rounded-lg bg-emerald-50 border border-emerald-200 flex items-center gap-2.5 text-xs text-emerald-600" role="status">
+            <svg className="w-4 h-4 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
               <polyline points="20 6 9 17 4 12" />
             </svg>
-            {successMsg}
+            <span className="font-medium">{successMsg}</span>
           </div>
         )}
 
-        {/* ── Form (scrollable) ─────────────────────────────────────────────── */}
+        {/* Form */}
         <form
           onSubmit={handleSubmit(onSubmit)}
           noValidate
-          style={{ flex: 1, overflowY: 'auto', padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 20 }}
+          className="flex-1 overflow-y-auto px-6 py-5 flex flex-col gap-5"
         >
           <input type="hidden" {...register('agremiado_id')} />
           <input type="hidden" {...register('tasa_cambio', { valueAsNumber: true })} />
 
-          {/* ── Sección 1: Identificación del Pago ─────────────────────────── */}
-          <div style={T.section}>
-            <div style={T.sectionTitle}>Identificación del pago</div>
+          {/* Tipo de Pago Selector */}
+          <div className="flex flex-col">
+            <label htmlFor="fp-tipo" className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Tipo de Pago</label>
+            <select
+              id="fp-tipo"
+              className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm text-slate-900 bg-slate-50 outline-hidden focus:border-blue-500 focus:bg-white transition-all cursor-pointer font-medium"
+              {...register('tipo_pago')}
+            >
+              <option value="solvencia">Solvencia (Anualidad - $20.00)</option>
+              <option value="inscripcion">Inscripción (Obligatoria - $30.00)</option>
+              <option value="carnet">Carnet de Inscripción (Opcional - $15.00)</option>
+              <option value="custodia">Custodia de Título (Opcional - $5.00/mes)</option>
+            </select>
+          </div>
 
-            {/* Fecha + Tasa BCV */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-              <div style={T.field}>
-                <label htmlFor="fp-fecha" style={T.label}>Fecha del pago</label>
-                <input
-                  id="fp-fecha"
-                  type="date"
-                  max={new Date().toISOString().split('T')[0]}
-                  style={inputStyle('fecha', !!errors.fecha_pago)}
-                  {...register('fecha_pago')}
-                />
-                {errors.fecha_pago && <span style={T.errorText}>{errors.fecha_pago.message}</span>}
-              </div>
+          <div className="border-b border-slate-100 my-1" />
 
-              <div style={T.field}>
-                <label style={T.label}>Tasa BCV</label>
-                <div style={{
-                  padding: '10px 12px', borderRadius: 9,
-                  border: '1.5px solid #e2e8f0',
-                  background: loadingTasa ? '#f8fafc' : tasa > 0 ? '#f0f9ff' : '#f8fafc',
-                  minHeight: 42, display: 'flex', flexDirection: 'column', justifyContent: 'center',
-                }}>
-                  {loadingTasa ? (
-                    <span style={{ fontSize: 12, color: '#94a3b8', display: 'flex', alignItems: 'center', gap: 6 }}>
-                      <span style={{
-                        width: 10, height: 10, borderRadius: '50%',
-                        border: '2px solid #cbd5e1', borderTopColor: '#2563eb',
-                        display: 'inline-block', animation: 'spin 0.7s linear infinite',
-                      }} />
-                      Consultando…
-                    </span>
-                  ) : tasa > 0 ? (
-                    <>
-                      <span style={{ fontSize: 15, fontWeight: 800, color: '#0f172a', fontFamily: 'JetBrains Mono, monospace' }}>
-                        Bs. {tasa.toFixed(2)}
-                      </span>
-                      <span style={{ fontSize: 10.5, color: '#64748b', marginTop: 1 }}>{tasaFuente}</span>
-                    </>
-                  ) : (
-                    <span style={{ fontSize: 12, color: '#94a3b8', fontStyle: 'italic' }}>Selecciona una fecha</span>
-                  )}
-                </div>
-              </div>
+          {/* Fecha + Tasa Cambiaria */}
+          <div className="grid grid-cols-2 gap-4">
+            <div className="flex flex-col">
+              <label htmlFor="fp-fecha" className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Fecha de Pago</label>
+              <input
+                id="fp-fecha"
+                type="date"
+                max={new Date().toISOString().split('T')[0]}
+                className={`w-full px-3 py-2 rounded-lg border text-sm text-slate-900 bg-slate-50 outline-hidden focus:border-blue-500 focus:bg-white transition-all ${
+                  errors.fecha_pago ? 'border-red-400 bg-red-50/50' : 'border-slate-200'
+                }`}
+                {...register('fecha_pago')}
+              />
+              {errors.fecha_pago && <span className="text-[11px] text-red-500 mt-1">{errors.fecha_pago.message}</span>}
             </div>
 
-            {/* Método */}
-            <div style={T.field}>
-              <label htmlFor="fp-metodo" style={T.label}>Método de pago</label>
+            <div className="flex flex-col">
+              <label className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Tasa Cambiaria BCV</label>
+              <div className={`px-3 py-2 rounded-lg border text-sm flex flex-col justify-center min-h-[38px] ${
+                tasa > 0 ? 'bg-sky-50/50 border-sky-100' : 'bg-slate-50 border-slate-200'
+              }`}>
+                {loadingTasa ? (
+                  <span className="text-xs text-slate-400 flex items-center gap-1.5">
+                    <span className="w-2.5 h-2.5 rounded-full border-2 border-slate-300 border-t-blue-600 animate-spin" />
+                    Consultando...
+                  </span>
+                ) : tasa > 0 ? (
+                  <>
+                    <span className="font-mono font-bold text-slate-900">Bs. {tasa.toFixed(2)}</span>
+                    <span className="text-[9px] text-slate-500 mt-0.5 leading-none">{tasaFuente}</span>
+                  </>
+                ) : (
+                  <span className="text-xs text-slate-400 italic">Elige una fecha</span>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Método + Referencia */}
+          <div className="grid grid-cols-2 gap-4">
+            <div className="flex flex-col">
+              <label htmlFor="fp-metodo" className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Método de Pago</label>
               <Controller
                 name="metodo_pago"
                 control={control}
                 render={({ field }) => (
                   <select
                     id="fp-metodo"
-                    style={{ ...T.input, cursor: 'pointer' }}
+                    className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm text-slate-900 bg-slate-50 outline-hidden focus:border-blue-500 focus:bg-white transition-all cursor-pointer"
                     {...field}
                   >
-                    {METODOS_PAGO.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
+                    {METODOS_PAGO.map((m) => (
+                      <option key={m.value} value={m.value}>{m.label}</option>
+                    ))}
                   </select>
                 )}
               />
             </div>
 
-            {/* Referencia */}
-            <div style={T.field}>
-              <label htmlFor="fp-ref" style={T.label}>Número de referencia</label>
+            <div className="flex flex-col">
+              <label htmlFor="fp-ref" className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Referencia / ID</label>
               <input
                 id="fp-ref"
                 type="text"
-                placeholder="Ej: 0123456789"
-                style={inputStyle('ref', !!errors.referencia)}
+                placeholder="Ej: 987654"
+                className={`w-full px-3 py-2 rounded-lg border text-sm text-slate-900 bg-slate-50 outline-hidden focus:border-blue-500 focus:bg-white transition-all ${
+                  errors.referencia ? 'border-red-400 bg-red-50/50' : 'border-slate-200'
+                }`}
                 {...register('referencia')}
               />
-              {errors.referencia && <span style={T.errorText}>{errors.referencia.message}</span>}
+              {errors.referencia && <span className="text-[11px] text-red-500 mt-1">{errors.referencia.message}</span>}
             </div>
           </div>
 
-          {/* ── Sección 2: Monto ─────────────────────────────────────────────── */}
-          <div style={T.section}>
-            <div style={T.sectionTitle}>Monto</div>
+          {/* Monto VES + USD Equivalente */}
+          <div className="grid grid-cols-2 gap-4">
+            <div className="flex flex-col">
+              <label htmlFor="fp-ves" className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Monto en Bolívares (VES)</label>
+              <Controller
+                name="monto_ves"
+                control={control}
+                render={({ field: { onChange, value } }) => {
+                  const [displayVal, setDisplayVal] = useState(() => {
+                    if (!value || isNaN(value)) return ''
+                    return formatVESInput(String(value))
+                  })
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-              <div style={T.field}>
-                <label htmlFor="fp-ves" style={T.label}>Monto en Bolívares (VES)</label>
-                <Controller
-                  name="monto_ves"
-                  control={control}
-                  render={({ field: { onChange, value } }) => {
-                    const [displayVal, setDisplayVal] = useState(() => {
-                      if (!value || isNaN(value)) return ''
-                      return formatVESInput(String(value))
-                    })
-
-                    useEffect(() => {
-                      const numVal = Number(value) || 0
-                      if (numVal === 0) {
-                        setDisplayVal('')
-                      } else {
-                        const cleanDisplay = parseFloat(displayVal.replace(/,/g, '')) || 0
-                        if (cleanDisplay !== numVal) {
-                          setDisplayVal(formatVESInput(numVal.toFixed(2)))
-                        }
+                  useEffect(() => {
+                    const numVal = Number(value) || 0
+                    if (numVal === 0) {
+                      setDisplayVal('')
+                    } else {
+                      const cleanDisplay = parseFloat(displayVal.replace(/,/g, '')) || 0
+                      if (cleanDisplay !== numVal) {
+                        setDisplayVal(formatVESInput(numVal.toFixed(2)))
                       }
-                    }, [value])
+                    }
+                  }, [value])
 
-                    const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-                      const inputVal = e.target.value
-                      const formatted = formatVESInput(inputVal)
-                      setDisplayVal(formatted)
+                  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+                    const inputVal = e.target.value
+                    const formatted = formatVESInput(inputVal)
+                    setDisplayVal(formatted)
+                    const numericVal = parseFloat(formatted.replace(/,/g, '')) || 0
+                    onChange(numericVal)
+                  }
 
-                      const numericVal = parseFloat(formatted.replace(/,/g, '')) || 0
-                      onChange(numericVal)
+                  return (
+                    <input
+                      id="fp-ves"
+                      type="text"
+                      placeholder="0.00"
+                      value={displayVal}
+                      onChange={handleInputChange}
+                      className={`w-full px-3 py-2 rounded-lg border text-sm text-slate-900 bg-slate-50 outline-hidden focus:border-blue-500 focus:bg-white transition-all font-mono font-semibold ${
+                        errors.monto_ves ? 'border-red-400 bg-red-50/50' : 'border-slate-200'
+                      }`}
+                    />
+                  )
+                }}
+              />
+              {errors.monto_ves && <span className="text-[11px] text-red-500 mt-1">{errors.monto_ves.message}</span>}
+            </div>
+
+            <div className="flex flex-col">
+              <label className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Equivalente USD</label>
+              <div className={`px-3 py-2 rounded-lg border text-sm flex flex-col justify-center min-h-[38px] transition-all ${
+                montoUSD > 0 && (aniosSeleccionados.length > 0 || tipoPago !== 'solvencia')
+                  ? montoMatch
+                    ? 'bg-emerald-50 border-emerald-200 text-emerald-700'
+                    : 'bg-amber-50 border-amber-200 text-amber-700'
+                  : 'bg-slate-50 border-slate-200 text-slate-400'
+              }`}>
+                <span className="font-mono font-bold">{montoUSD > 0 ? formatUSD(montoUSD) : '—'}</span>
+                {montoEsperadoUSD > 0 && (
+                  <span className="text-[10px] font-semibold mt-0.5 leading-none">
+                    {montoMatch ? '✓ Coincide con tarifa' : `Esperado: ${formatUSD(montoEsperadoUSD)}`}
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <div className="border-b border-slate-100 my-1" />
+
+          {/* ── SECCIÓN DINÁMICA SEGÚN TIPO PAGO ── */}
+
+          {/* 1. SOLVENCIA: Selección de Años */}
+          {tipoPago === 'solvencia' && (
+            <div className="flex flex-col gap-3">
+              <div className="flex items-center justify-between text-xs font-bold text-slate-500 uppercase tracking-wider">
+                <span>Años a solventar</span>
+                {aniosSeleccionados.length > 0 && (
+                  <span className="bg-blue-50 text-blue-700 px-2 py-0.5 rounded-full text-[10px] font-extrabold normal-case">
+                    {aniosSeleccionados.length} seleccionado{aniosSeleccionados.length !== 1 ? 's' : ''}
+                  </span>
+                )}
+              </div>
+
+              {deuda.aniosPendientesPost.length === 0 ? (
+                <div className="p-4 rounded-lg bg-emerald-50 border border-emerald-100 flex items-center gap-2.5 text-xs font-medium text-emerald-800">
+                  <span>✅ El agremiado está al día en todas las solvencias post-2023.</span>
+                </div>
+              ) : (
+                <div className="p-3.5 rounded-xl border border-slate-150 bg-slate-50/50 space-y-3">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="font-bold text-slate-700">Períodos Pendientes</span>
+                    <span className="text-[10px] font-semibold px-2 py-0.5 bg-indigo-50 text-indigo-700 rounded-full">
+                      ${MONTO_POR_ANIO_POST_USD}/año
+                    </span>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {deuda.aniosPendientesPost.map((anio) => {
+                      const sel = aniosSeleccionados.includes(anio)
+                      return (
+                        <button
+                          key={anio}
+                          type="button"
+                          id={`fp-anio-${anio}`}
+                          onClick={() => toggleAnio(anio)}
+                          className={`px-4 py-2 rounded-lg border text-sm font-bold font-mono cursor-pointer transition-all flex items-center gap-1.5 ${
+                            sel
+                              ? 'border-blue-600 bg-blue-50 text-blue-700'
+                              : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
+                          }`}
+                        >
+                          {sel && (
+                            <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.5">
+                              <polyline points="20 6 9 17 4 12" />
+                            </svg>
+                          )}
+                          {anio}
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
+              {errors.anios_correspondientes && (
+                <span className="text-[11px] text-red-500">{String(errors.anios_correspondientes.message)}</span>
+              )}
+            </div>
+          )}
+
+          {/* 2. CUSTODIA: Selección de Meses + Regla Cortesía */}
+          {tipoPago === 'custodia' && (
+            <div className="flex flex-col gap-3">
+              <div className="flex items-center justify-between text-xs font-bold text-slate-500 uppercase tracking-wider">
+                <span>Meses de Custodia</span>
+                <div className="flex items-center gap-2">
+                  <select
+                    value={custodiaYear}
+                    onChange={(e) => setCustodiaYear(Number(e.target.value))}
+                    className="border border-slate-200 rounded px-1.5 py-0.5 text-xs bg-white font-medium"
+                  >
+                    {[2023, 2024, 2025, 2026, 2027].map((y) => (
+                      <option key={y} value={y}>{y}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="p-3.5 rounded-xl border border-slate-150 bg-slate-50/50">
+                <div className="text-[11px] text-slate-500 mb-3 leading-relaxed">
+                  📌 La tarifa de custodia es de <strong className="text-slate-800">$5.00/mes</strong>. Los primeros 3 meses desde la entrega/recepción del título son de cortesía (gratis).
+                </div>
+
+                <div className="grid grid-cols-2 gap-2">
+                  {MESES_NOMBRES.map((nombre, idx) => {
+                    const mesStr = `${custodiaYear}-${String(idx + 1).padStart(2, '0')}`
+                    const isCort = esMesCortesia(custodiaYear, idx)
+                    const sel = mesesCustodiaSeleccionados.includes(mesStr)
+
+                    if (isCort) {
+                      return (
+                        <div
+                          key={mesStr}
+                          className="flex items-center justify-between p-2 rounded-lg border border-emerald-100 bg-emerald-50/50 opacity-80"
+                        >
+                          <span className="text-xs font-medium text-emerald-800">{nombre}</span>
+                          <span className="text-[9px] font-bold px-1.5 py-0.5 bg-emerald-100 text-emerald-800 rounded">Cortesía</span>
+                        </div>
+                      )
                     }
 
                     return (
-                      <input
-                        id="fp-ves"
-                        type="text"
-                        placeholder="0.00"
-                        value={displayVal}
-                        onChange={handleInputChange}
-                        style={inputStyle('ves', !!errors.monto_ves)}
-                      />
+                      <button
+                        key={mesStr}
+                        type="button"
+                        onClick={() => toggleMesCustodia(mesStr)}
+                        className={`flex items-center justify-between p-2 rounded-lg border text-left cursor-pointer transition-all ${
+                          sel
+                            ? 'border-blue-600 bg-blue-50 text-blue-700'
+                            : 'border-slate-250 bg-white text-slate-600 hover:bg-slate-50'
+                        }`}
+                      >
+                        <span className="text-xs font-medium">{nombre}</span>
+                        {sel ? (
+                          <span className="w-4 h-4 rounded-full bg-blue-600 flex items-center justify-center">
+                            <svg className="w-2.5 h-2.5 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4">
+                              <polyline points="20 6 9 17 4 12" />
+                            </svg>
+                          </span>
+                        ) : (
+                          <span className="text-[9px] font-bold text-slate-400">$5.00</span>
+                        )}
+                      </button>
                     )
-                  }}
-                />
-                {errors.monto_ves && <span style={T.errorText}>{errors.monto_ves.message}</span>}
-              </div>
-
-              <div style={T.field}>
-                <label style={T.label}>Equivalente USD</label>
-                <div style={{
-                  padding: '10px 12px', borderRadius: 9,
-                  border: `1.5px solid ${montoUSD > 0 && aniosSeleccionados.length > 0 ? (montoMatch ? '#bbf7d0' : '#fecaca') : '#e2e8f0'}`,
-                  background: montoUSD > 0 && aniosSeleccionados.length > 0 ? (montoMatch ? '#f0fdf4' : '#fef2f2') : '#f8fafc',
-                  minHeight: 42, display: 'flex', flexDirection: 'column', justifyContent: 'center',
-                  transition: 'all 0.2s',
-                }}>
-                  <span style={{ fontSize: 15, fontWeight: 800, fontFamily: 'JetBrains Mono, monospace', color: montoUSD > 0 ? '#16a34a' : '#94a3b8' }}>
-                    {montoUSD > 0 ? formatUSD(montoUSD) : '—'}
-                  </span>
-                  {montoEsperadoUSD > 0 && aniosSeleccionados.length > 0 && (
-                    <span style={{ fontSize: 10.5, color: montoMatch ? '#16a34a' : '#dc2626', marginTop: 1, fontWeight: 600 }}>
-                      {montoMatch ? '✓ Monto correcto' : `Esperado: ${formatUSD(montoEsperadoUSD)}`}
-                    </span>
-                  )}
+                  })}
                 </div>
               </div>
-            </div>
-          </div>
-
-          {/* ── Sección 3: Años a acreditar ──────────────────────────────────── */}
-          <div style={T.section}>
-            <div style={{ ...T.sectionTitle, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <span>Años a acreditar</span>
-              {aniosSeleccionados.length > 0 && (
-                <span style={{ background: '#dbeafe', color: '#1d4ed8', padding: '2px 8px', borderRadius: 20, fontSize: 11, fontWeight: 700 }}>
-                  {aniosSeleccionados.length} seleccionado{aniosSeleccionados.length !== 1 ? 's' : ''}
-                </span>
+              {errors.anios_correspondientes && (
+                <span className="text-[11px] text-red-500">{String(errors.anios_correspondientes.message)}</span>
               )}
             </div>
+          )}
 
-            {deuda.aniosPendientesPost.length === 0 ? (
-              <div style={{
-                padding: '16px', borderRadius: 9, background: '#f0fdf4', border: '1px solid #bbf7d0',
-                display: 'flex', alignItems: 'center', gap: 10, fontSize: 13, color: '#15803d', fontWeight: 500,
-              }}>
-                <span style={{ fontSize: 20 }}>✅</span>
-                El agremiado está solvente en todos los períodos.
+          {/* 3. INSCRIPCIÓN / CARNET: Información de Costo Fijo */}
+          {tipoPago === 'inscripcion' && (
+            <div className="p-4 rounded-xl bg-purple-50 border border-purple-100 text-purple-950 space-y-1.5">
+              <div className="text-xs font-bold uppercase tracking-wider text-purple-800">Inscripción del Agremiado</div>
+              <div className="text-xs leading-relaxed">
+                Este es el pago único obligatorio de inscripción correspondiente a un valor fijo de <strong className="text-purple-900">$30.00</strong>.
               </div>
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                {/* Bloque Post-2023 */}
-                {deuda.aniosPendientesPost.length > 0 && (
-                  <div style={{ padding: '12px 14px', borderRadius: 9, border: '1.5px solid #e2e8f0', background: '#fafafa' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-                      <span style={{ fontSize: 13, fontWeight: 700, color: '#0f172a' }}>Períodos Pendientes</span>
-                      <span style={{
-                        padding: '2px 8px', borderRadius: 20,
-                        fontSize: 11, fontWeight: 600, background: '#ede9fe', color: '#6d28d9',
-                      }}>
-                        ${MONTO_POR_ANIO_POST_USD}/año
-                      </span>
-                    </div>
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-                      {deuda.aniosPendientesPost.map(anio => {
-                        const sel = aniosSeleccionados.includes(anio)
-                        return (
-                          <button
-                            key={anio}
-                            type="button"
-                            id={`fp-anio-${anio}`}
-                            onClick={() => toggleAnio(anio)}
-                            style={{
-                              padding: '8px 16px', borderRadius: 8,
-                              border: sel ? '2px solid #2563eb' : '2px solid #e2e8f0',
-                              background: sel ? 'linear-gradient(135deg, #eff6ff, #dbeafe)' : '#fff',
-                              color: sel ? '#1d4ed8' : '#475569',
-                              fontSize: 14, fontWeight: 700, cursor: 'pointer',
-                              fontFamily: 'JetBrains Mono, monospace',
-                              transition: 'all 0.15s',
-                              display: 'flex', alignItems: 'center', gap: 6,
-                            }}
-                          >
-                            {sel && (
-                              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.5">
-                                <polyline points="20 6 9 17 4 12" />
-                              </svg>
-                            )}
-                            {anio}
-                          </button>
-                        )
-                      })}
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-            {errors.anios_correspondientes && (
-              <span style={T.errorText}>{String(errors.anios_correspondientes.message)}</span>
-            )}
-          </div>
+            </div>
+          )}
 
-          {/* ── Sección 4: Notas ─────────────────────────────────────────────── */}
-          <div style={T.section}>
-            <div style={T.sectionTitle}>Notas <span style={{ textTransform: 'none', fontWeight: 500 }}>(opcional)</span></div>
+          {tipoPago === 'carnet' && (
+            <div className="p-4 rounded-xl bg-violet-50 border border-violet-100 text-violet-950 space-y-1.5">
+              <div className="text-xs font-bold uppercase tracking-wider text-violet-800">Carnet de Inscripción</div>
+              <div className="text-xs leading-relaxed">
+                Pago único opcional por concepto de emisión física del carnet de agremiado con costo fijo de <strong className="text-violet-900">$15.00</strong>.
+              </div>
+            </div>
+          )}
+
+          {/* Notas */}
+          <div className="flex flex-col">
+            <label htmlFor="fp-notas" className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Notas / Observaciones (Opcional)</label>
             <textarea
               id="fp-notas"
               rows={2}
-              placeholder="Observaciones adicionales…"
-              style={{ ...T.input, resize: 'vertical', lineHeight: 1.5 }}
+              placeholder="Detalles sobre transferencia, banco emisor..."
+              className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm text-slate-900 bg-slate-50 outline-hidden focus:border-blue-500 focus:bg-white transition-all resize-y"
               {...register('notas')}
             />
           </div>
 
-          {/* ── Resumen de transacción ────────────────────────────────────────── */}
-          {aniosSeleccionados.length > 0 && montoVES > 0 && tasa > 0 && (
-            <div style={{
-              padding: '14px 16px', borderRadius: 10,
-              background: 'linear-gradient(135deg, #1e293b, #0f172a)',
-              border: '1px solid #334155',
-            }}>
-              <div style={{ fontSize: 11, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 10 }}>
-                Resumen de la transacción
-              </div>
-              {[
-                { label: 'Años a acreditar', value: aniosSeleccionados.sort((a,b)=>a-b).join(', ') },
-                { label: 'Monto VES', value: formatVES(montoVES) },
-                { label: 'Tasa BCV', value: `Bs. ${tasa.toFixed(2)}` },
-              ].map(({ label, value }) => (
-                <div key={label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 12.5, padding: '5px 0', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-                  <span style={{ color: '#94a3b8' }}>{label}</span>
-                  <span style={{ color: '#e2e8f0', fontFamily: 'JetBrains Mono, monospace', fontWeight: 600 }}>{value}</span>
+          {/* Resumen Transacción */}
+          {montoVES > 0 && tasa > 0 && (
+            <div className="p-4 rounded-xl bg-slate-900 text-white space-y-2.5 mt-auto shadow-md">
+              <div className="text-[10px] font-extrabold uppercase tracking-widest text-slate-400">Resumen de Transacción</div>
+              <div className="space-y-1.5">
+                <div className="flex justify-between text-xs">
+                  <span className="text-slate-400">Concepto</span>
+                  <span className="font-bold text-slate-200 capitalize">
+                    {tipoPago === 'solvencia' && 'Solvencia Anual'}
+                    {tipoPago === 'inscripcion' && 'Inscripción'}
+                    {tipoPago === 'carnet' && 'Carnet de Inscripción'}
+                    {tipoPago === 'custodia' && 'Custodia de Título'}
+                  </span>
                 </div>
-              ))}
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 14, paddingTop: 10, marginTop: 2 }}>
-                <span style={{ color: '#e2e8f0', fontWeight: 700 }}>Total USD equivalente</span>
-                <span style={{ color: '#4ade80', fontFamily: 'JetBrains Mono, monospace', fontWeight: 800, fontSize: 16 }}>{formatUSD(montoUSD)}</span>
+                {tipoPago === 'solvencia' && aniosSeleccionados.length > 0 && (
+                  <div className="flex justify-between text-xs">
+                    <span className="text-slate-400">Años a solventar</span>
+                    <span className="font-mono text-slate-200">{aniosSeleccionados.sort((a,b)=>a-b).join(', ')}</span>
+                  </div>
+                )}
+                {tipoPago === 'custodia' && mesesCustodiaSeleccionados.length > 0 && (
+                  <div className="flex justify-between text-xs">
+                    <span className="text-slate-400">Meses facturados</span>
+                    <span className="font-mono text-slate-200 max-w-[200px] truncate" title={mesesCustodiaSeleccionados.sort().join(', ')}>
+                      {mesesCustodiaSeleccionados.sort().map(m => m.split('-')[1]).join(', ')} ({mesesCustodiaSeleccionados.length}m)
+                    </span>
+                  </div>
+                )}
+                <div className="flex justify-between text-xs">
+                  <span className="text-slate-400">Monto VES</span>
+                  <span className="font-mono text-slate-200">{formatVES(montoVES)}</span>
+                </div>
+                <div className="flex justify-between text-xs">
+                  <span className="text-slate-400">Tasa cambiaria BCV</span>
+                  <span className="font-mono text-slate-200">Bs. {tasa.toFixed(2)}</span>
+                </div>
+              </div>
+              <div className="border-t border-slate-800 pt-2 flex justify-between items-center">
+                <span className="text-xs font-bold text-slate-200">Total USD equivalente</span>
+                <span className="text-base font-extrabold text-emerald-400 font-mono">{formatUSD(montoUSD)}</span>
               </div>
             </div>
           )}
         </form>
 
-        {/* ── Footer / Actions ──────────────────────────────────────────────── */}
-        <div style={{
-          padding: '16px 24px',
-          borderTop: '1px solid #f1f5f9',
-          display: 'flex', gap: 10,
-          flexShrink: 0, background: '#fff',
-        }}>
+        {/* Footer */}
+        <div className="px-6 py-4 border-t border-slate-100 flex gap-3 flex-shrink-0 bg-slate-50">
           <button
             type="button"
             onClick={onClose}
             disabled={isLoading}
-            style={{
-              flex: 1, padding: '11px 16px', borderRadius: 9,
-              border: '1.5px solid #e2e8f0', background: '#f8fafc',
-              color: '#475569', fontSize: 14, fontWeight: 600,
-              cursor: isLoading ? 'not-allowed' : 'pointer', fontFamily: 'inherit',
-              transition: 'all 0.15s',
-            }}
+            className="flex-1 py-2.5 px-4 rounded-xl border border-slate-200 bg-white text-slate-600 font-bold text-sm hover:bg-slate-100 hover:text-slate-900 cursor-pointer disabled:bg-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed transition-colors"
           >
             Cancelar
           </button>
           <button
             type="submit"
             id="fp-submit"
-            form=""
+            disabled={isLoading || tasa === 0}
             onClick={(e) => {
               e.preventDefault()
               handleSubmit(onSubmit)()
             }}
-            disabled={isLoading || tasa === 0}
-            style={{
-              flex: 2, padding: '11px 16px', borderRadius: 9, border: 'none',
-              background: isLoading || tasa === 0
-                ? '#e2e8f0'
-                : 'linear-gradient(135deg, #2563eb, #1d4ed8)',
-              color: isLoading || tasa === 0 ? '#94a3b8' : '#fff',
-              fontSize: 14, fontWeight: 700,
-              cursor: isLoading || tasa === 0 ? 'not-allowed' : 'pointer',
-              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-              boxShadow: isLoading || tasa === 0 ? 'none' : '0 4px 14px rgba(37,99,235,0.35)',
-              transition: 'all 0.2s', fontFamily: 'inherit',
-            }}
+            className={`flex-2 py-2.5 px-4 rounded-xl text-white font-bold text-sm cursor-pointer shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2 ${
+              isLoading || tasa === 0
+                ? 'bg-slate-200 text-slate-400 cursor-not-allowed shadow-none'
+                : 'bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-850 hover:scale-[1.01] active:scale-[0.99]'
+            }`}
           >
             {isLoading ? (
               <>
-                <span style={{
-                  width: 14, height: 14, borderRadius: '50%',
-                  border: '2px solid rgba(255,255,255,0.3)',
-                  borderTopColor: '#fff',
-                  display: 'inline-block',
-                  animation: 'spin 0.7s linear infinite',
-                }} />
-                Registrando…
+                <span className="w-3.5 h-3.5 rounded-full border-2 border-white/30 border-t-white animate-spin" />
+                Registrando...
               </>
             ) : (
               <>
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                   <polyline points="20 6 9 17 4 12" />
                 </svg>
                 Registrar Pago
@@ -641,13 +703,6 @@ export function FormularioPago({ agremiado_id, nombreCompleto, deuda, onSuccess,
           </button>
         </div>
       </div>
-
-      {/* ── Animaciones CSS ────────────────────────────────────────────────────── */}
-      <style>{`
-        @keyframes fadeIn { from { opacity: 0 } to { opacity: 1 } }
-        @keyframes slideInRight { from { transform: translateX(100%) } to { transform: translateX(0) } }
-        @keyframes spin { to { transform: rotate(360deg) } }
-      `}</style>
     </>
   )
 }

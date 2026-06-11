@@ -76,6 +76,7 @@ export async function registrarAgremiado(rawData: AgreimadoInput): Promise<Agrem
       correo: data.correo?.trim() || null,
       telefono: data.telefono?.trim() || null,
       fecha_inscripcion: data.fecha_inscripcion,
+      fecha_recepcion_titulo: data.fecha_recepcion_titulo || null,
     }
 
     const { data: inserted, error: insertError } = await db
@@ -100,5 +101,59 @@ export async function registrarAgremiado(rawData: AgreimadoInput): Promise<Agrem
   } catch (err: any) {
     console.error('[registrarAgremiado] Excepción:', err)
     return { success: false, error: err?.message || 'Error interno del servidor al registrar agremiado.' }
+  }
+}
+
+/**
+ * editarAgremiado
+ *
+ * Server action to update an existing member's profile.
+ */
+export async function editarAgremiado(id: string, rawData: AgreimadoInput): Promise<AgremiadoResult> {
+  const parsed = agreimadoSchema.safeParse(rawData)
+  if (!parsed.success) {
+    const firstError = parsed.error.issues[0]?.message ?? 'Datos de agremiado inválidos'
+    return { success: false, error: firstError }
+  }
+
+  const data = parsed.data
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) {
+    return { success: false, error: 'No autorizado. Por favor inicia sesión nuevamente.' }
+  }
+
+  const db = createServiceClient()
+  try {
+    const payload = {
+      cedula: data.cedula.trim(),
+      fpv: data.fpv.trim(),
+      nombres: data.nombres.trim(),
+      apellidos: data.apellidos.trim(),
+      correo: data.correo?.trim() || null,
+      telefono: data.telefono?.trim() || null,
+      fecha_inscripcion: data.fecha_inscripcion,
+      fecha_recepcion_titulo: data.fecha_recepcion_titulo || null,
+      updated_at: new Date().toISOString(),
+    }
+
+    const { error } = await db
+      .from('agremiados')
+      .update(payload)
+      .eq('id', id)
+
+    if (error) {
+      console.error('[editarAgremiado] Error al actualizar:', error)
+      return { success: false, error: `Error de base de datos al actualizar: ${error.message} (Código: ${error.code})` }
+    }
+
+    revalidatePath('/dashboard')
+    revalidatePath('/dashboard/agremiados')
+    revalidatePath(`/dashboard/agremiados/${id}`)
+
+    return { success: true }
+  } catch (err: any) {
+    console.error('[editarAgremiado] Excepción:', err)
+    return { success: false, error: err?.message || 'Error interno del servidor al editar agremiado.' }
   }
 }

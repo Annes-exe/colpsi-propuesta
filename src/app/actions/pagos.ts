@@ -71,6 +71,8 @@ export async function registrarPago(rawData: PagoInput): Promise<ActionResult> {
     referencia: data.referencia.trim(),
     metodo_pago: data.metodo_pago,
     notas: data.notas?.trim() || null,
+    tipo_pago: data.tipo_pago,
+    meses_custodia: data.meses_custodia,
   }
 
   const { data: pago, error: pagoError } = await db
@@ -91,32 +93,34 @@ export async function registrarPago(rawData: PagoInput): Promise<ActionResult> {
   }
 
   // ── 4. Insertar solvencias anuales ─────────────────────────────────────────
-  const solvenciasPayload: SolvenciaInsert[] = data.anios_correspondientes.map((anio) => ({
-    agremiado_id: data.agremiado_id,
-    pago_id: pago.id,
-    anio_correspondiente: anio,
-  }))
+  if (data.tipo_pago === 'solvencia' && data.anios_correspondientes.length > 0) {
+    const solvenciasPayload: SolvenciaInsert[] = data.anios_correspondientes.map((anio) => ({
+      agremiado_id: data.agremiado_id,
+      pago_id: pago.id,
+      anio_correspondiente: anio,
+    }))
 
-  const { error: solvenciasError } = await db
-    .from('solvencias_anuales')
-    .insert(solvenciasPayload)
+    const { error: solvenciasError } = await db
+      .from('solvencias_anuales')
+      .insert(solvenciasPayload)
 
-  if (solvenciasError) {
-    console.error('[registrarPago] Error insertando solvencias en Supabase:', solvenciasError)
-    // Rollback manual: eliminar el pago para mantener consistencia
-    const rollback = await db.from('pagos').delete().eq('id', pago.id)
-    if (rollback.error) {
-      console.error('[registrarPago] Error en rollback al borrar pago:', rollback.error)
-    }
-
-    if (solvenciasError.code === '23505') {
-      return {
-        success: false,
-        error: 'Uno o más años seleccionados ya tienen solvencia registrada.',
+    if (solvenciasError) {
+      console.error('[registrarPago] Error insertando solvencias en Supabase:', solvenciasError)
+      // Rollback manual: eliminar el pago para mantener consistencia
+      const rollback = await db.from('pagos').delete().eq('id', pago.id)
+      if (rollback.error) {
+        console.error('[registrarPago] Error en rollback al borrar pago:', rollback.error)
       }
+
+      if (solvenciasError.code === '23505') {
+        return {
+          success: false,
+          error: 'Uno o más años seleccionados ya tienen solvencia registrada.',
+        }
+      }
+      const msgError = `${solvenciasError.message} (Código: ${solvenciasError.code}, Detalles: ${solvenciasError.details || 'Ninguno'})`
+      return { success: false, error: `Error en base de datos al registrar solvencias: ${msgError}. El pago fue revertido.` }
     }
-    const msgError = `${solvenciasError.message} (Código: ${solvenciasError.code}, Detalles: ${solvenciasError.details || 'Ninguno'})`
-    return { success: false, error: `Error en base de datos al registrar solvencias: ${msgError}. El pago fue revertido.` }
   }
 
   // ── 5. Invalidar caché ─────────────────────────────────────────────────────

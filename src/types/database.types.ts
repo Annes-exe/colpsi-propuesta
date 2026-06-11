@@ -25,6 +25,7 @@ export type Database = {
           correo: string | null
           telefono: string | null
           fecha_inscripcion: string
+          fecha_recepcion_titulo: string | null
           created_at: string | null
           updated_at: string | null
         }
@@ -37,6 +38,7 @@ export type Database = {
           correo?: string | null
           telefono?: string | null
           fecha_inscripcion: string
+          fecha_recepcion_titulo?: string | null
           created_at?: string | null
           updated_at?: string | null
         }
@@ -49,6 +51,7 @@ export type Database = {
           correo?: string | null
           telefono?: string | null
           fecha_inscripcion?: string
+          fecha_recepcion_titulo?: string | null
           updated_at?: string | null
         }
         Relationships: []
@@ -65,6 +68,8 @@ export type Database = {
           metodo_pago: string
           notas: string | null
           created_at: string | null
+          tipo_pago: 'solvencia' | 'inscripcion' | 'custodia' | 'carnet'
+          meses_custodia: string[]
         }
         Insert: {
           id?: string
@@ -77,6 +82,8 @@ export type Database = {
           metodo_pago: string
           notas?: string | null
           created_at?: string | null
+          tipo_pago?: 'solvencia' | 'inscripcion' | 'custodia' | 'carnet'
+          meses_custodia?: string[]
         }
         Update: {
           agremiado_id?: string
@@ -87,6 +94,8 @@ export type Database = {
           referencia?: string
           metodo_pago?: string
           notas?: string | null
+          tipo_pago?: 'solvencia' | 'inscripcion' | 'custodia' | 'carnet'
+          meses_custodia?: string[]
         }
         Relationships: [
           {

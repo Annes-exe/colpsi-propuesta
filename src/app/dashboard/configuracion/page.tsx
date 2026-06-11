@@ -2,19 +2,19 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 
 export const metadata: Metadata = {
-  title: 'Pagos — Módulo en Desarrollo | ColPsi',
+  title: 'Configuración — Módulo en Desarrollo | ColPsi',
 }
 
-export default function PagosPage() {
+export default function ConfigPage() {
   return (
     <div className="flex flex-col items-center justify-center min-h-[70vh] bg-white border border-slate-200 rounded-2xl p-8 md:p-16 text-center shadow-xs max-w-4xl mx-auto">
       {/* Icon Area */}
       <div className="relative mb-6">
         <div className="absolute inset-0 bg-blue-100 rounded-full blur-xl opacity-50 scale-150 animate-pulse" />
         <div className="relative w-24 h-24 bg-gradient-to-tr from-blue-500 to-sky-400 rounded-full flex items-center justify-center text-white shadow-lg">
-          <svg className="w-11 h-11 animate-pulse-slow" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-            <rect x="2" y="5" width="20" height="14" rx="2" ry="2" />
-            <line x1="2" y1="10" x2="22" y2="10" />
+          <svg className="w-12 h-12 animate-spin-slow" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.1a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
+            <circle cx="12" cy="12" r="3" />
           </svg>
         </div>
       </div>
@@ -27,36 +27,34 @@ export default function PagosPage() {
 
       {/* Title & Description */}
       <h1 className="text-2xl md:text-3xl font-extrabold text-slate-900 tracking-tight mb-3">
-        Registro de Pagos
+        Configuración del Sistema
       </h1>
       <p className="text-slate-500 max-w-lg mx-auto text-sm md:text-base leading-relaxed mb-8">
-        Estamos construyendo el libro de contabilidad centralizado e histórico de transacciones. Actualmente, puedes registrar y revisar los pagos de cada agremiado directamente ingresando a su perfil individual en el Directorio.
+        Estamos construyendo el panel de administración central. Desde aquí podrás configurar las tasas cambiarias por defecto, gestionar cuentas bancarias del gremio, personalizar las cuotas de solvencia y administrar los roles de usuario.
       </p>
 
       {/* Action */}
       <div className="flex flex-col sm:flex-row gap-3 items-center justify-center">
         <Link
-          href="/dashboard/agremiados"
+          href="/dashboard"
           className="px-6 py-2.5 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-bold text-sm rounded-xl shadow-md hover:shadow-lg transition-all flex items-center gap-2"
         >
           <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-            <rect x="3" y="4" width="18" height="18" rx="2" />
-            <line x1="16" y1="2" x2="16" y2="6" />
-            <line x1="8" y1="2" x2="8" y2="6" />
-            <line x1="3" y1="10" x2="21" y2="10" />
+            <line x1="19" y1="12" x2="5" y2="12" />
+            <polyline points="12 19 5 12 12 5" />
           </svg>
-          Ir al Directorio
+          Volver al Dashboard
         </Link>
       </div>
 
-      {/* Custom slow pulse animation */}
+      {/* Custom slow spin for the gear */}
       <style>{`
-        @keyframes pulse-slow {
-          0%, 100% { opacity: 1; transform: scale(1); }
-          50% { opacity: 0.85; transform: scale(0.96); }
+        @keyframes spin-slow {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
         }
-        .animate-pulse-slow {
-          animation: pulse-slow 3s ease-in-out infinite;
+        .animate-spin-slow {
+          animation: spin-slow 8s linear infinite;
         }
       `}</style>
     </div>

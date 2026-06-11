@@ -3,6 +3,8 @@ import { notFound } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { calcularDeuda, formatUSD, formatVES } from '@/hooks/useCalculadoraDeuda'
 import { RegistrarPagoTrigger } from '@/components/agremiados/RegistrarPagoTrigger'
+import { EditarPerfilTrigger } from '@/components/agremiados/EditarPerfilTrigger'
+import { DocumentosViewer } from '@/components/agremiados/DocumentosViewer'
 import type { VistaSolvencia, Pago, SolvenciaAnual } from '@/types/database.types'
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
@@ -102,13 +104,15 @@ export default async function AgreiadoDetailPage({ params }: Props) {
   const { id } = await params
   const supabase = await createClient()
 
-  const { data: agremiado } = await supabase
-    .from('vista_solvencia_agremiados')
-    .select('*')
-    .eq('id', id)
-    .single() as { data: VistaSolvencia | null }
+  const [agremiadoRes, agremiadoTableRes] = await Promise.all([
+    supabase.from('vista_solvencia_agremiados').select('*').eq('id', id).single(),
+    supabase.from('agremiados').select('fecha_recepcion_titulo').eq('id', id).single(),
+  ])
 
+  const agremiado = agremiadoRes.data as VistaSolvencia | null
   if (!agremiado) notFound()
+
+  const fechaRecepcionTitulo = agremiadoTableRes.data?.fecha_recepcion_titulo ?? null
 
   const { data: pagos } = await supabase
     .from('pagos')
@@ -209,7 +213,22 @@ export default async function AgreiadoDetailPage({ params }: Props) {
       {/* Header */}
       <div style={S.header}>
         <div style={S.headerLeft}>
-          <div style={S.avatar}>{iniciales}</div>
+          <div style={{ ...S.avatar, overflow: 'hidden', padding: 0 }}>
+            {/* Renders a premium vector placeholder of a psychologist avatar */}
+            <svg viewBox="0 0 120 120" className="w-full h-full">
+              <rect width="120" height="120" fill="#2563eb" />
+              {/* Head */}
+              <circle cx="60" cy="50" r="22" fill="#fed7aa" />
+              {/* Shoulders */}
+              <path d="M20 100c0-18 18-30 40-30s40 12 40 30" fill="#3b82f6" />
+              {/* Tie */}
+              <path d="M60 70l-6 16h12z" fill="#1d4ed8" />
+              {/* Suit collars */}
+              <path d="M40 70l20 30 20-30" fill="none" stroke="#1e40af" strokeWidth="3" />
+              {/* Hair/Cap */}
+              <path d="M38 50c0-15 10-22 22-22s22 7 22 22v3H38z" fill="#475569" />
+            </svg>
+          </div>
           <div>
             <h1 style={S.nombre}>{agremiado.nombres ?? '—'} {agremiado.apellidos ?? '—'}</h1>
             <div style={S.metaRow}>
@@ -228,12 +247,43 @@ export default async function AgreiadoDetailPage({ params }: Props) {
                   Con Deuda
                 </span>
               )}
+              <span style={S.metaSep}>•</span>
+              {agremiado.fecha_inscripcion && new Date(agremiado.fecha_inscripcion + 'T00:00:00').getFullYear() >= 2023 ? (
+                <span style={{ display:'inline-flex', alignItems:'center', gap:5, padding:'3px 10px', borderRadius:20, fontSize:12, fontWeight:600, background:'#ede9fe', color:'#6d28d9' }}>
+                  <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#8b5cf6', flexShrink: 0, display: 'inline-block' }} />
+                  Nuevo Agremiado
+                </span>
+              ) : (
+                <span style={{ display:'inline-flex', alignItems:'center', gap:5, padding:'3px 10px', borderRadius:20, fontSize:12, fontWeight:600, background:'#e2e8f0', color:'#475569' }}>
+                  <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#64748b', flexShrink: 0, display: 'inline-block' }} />
+                  Viejo Agremiado
+                </span>
+              )}
             </div>
           </div>
         </div>
-
+ 
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <RegistrarPagoTrigger agremiado_id={id} nombreCompleto={nombreCompleto} deuda={deuda} />
+          <EditarPerfilTrigger
+            agremiado={{
+              id: id,
+              cedula: agremiado.cedula ?? '',
+              fpv: agremiado.fpv ?? '',
+              nombres: agremiado.nombres ?? '',
+              apellidos: agremiado.apellidos ?? '',
+              correo: agremiado.correo,
+              telefono: agremiado.telefono,
+              fecha_inscripcion: agremiado.fecha_inscripcion ?? '',
+            }}
+            fechaRecepcionTitulo={fechaRecepcionTitulo}
+          />
+          <RegistrarPagoTrigger
+            agremiado_id={id}
+            nombreCompleto={nombreCompleto}
+            deuda={deuda}
+            fecha_recepcion_titulo={fechaRecepcionTitulo}
+            fecha_inscripcion={agremiado.fecha_inscripcion}
+          />
         </div>
       </div>
 
@@ -265,6 +315,12 @@ export default async function AgreiadoDetailPage({ params }: Props) {
                   value: agremiado.fecha_inscripcion
                     ? new Date(agremiado.fecha_inscripcion + 'T00:00:00').toLocaleDateString('es-VE', { year: 'numeric', month: 'long', day: 'numeric' })
                     : '—',
+                },
+                {
+                  label: 'Recepción del Título',
+                  value: fechaRecepcionTitulo
+                    ? new Date(fechaRecepcionTitulo + 'T00:00:00').toLocaleDateString('es-VE', { year: 'numeric', month: 'long', day: 'numeric' })
+                    : <span style={{ color: '#64748b', fontStyle: 'italic', fontSize: '13px' }}>No registrada (se asume fecha de inscripción)</span>,
                 },
                 {
                   label: 'Años Solventes',
@@ -299,7 +355,7 @@ export default async function AgreiadoDetailPage({ params }: Props) {
                 <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                   <thead>
                     <tr>
-                      {['Fecha', 'Referencia', 'Método', 'Tasa BCV', 'Monto VES', 'Monto USD', 'Años acreditados'].map((h, i) => (
+                      {['Fecha', 'Referencia', 'Método', 'Tasa BCV', 'Monto VES', 'Monto USD', 'Concepto / Período'].map((h, i) => (
                         <th key={h} style={{ ...S.th, textAlign: i >= 4 && i <= 5 ? 'right' : 'left' }}>{h}</th>
                       ))}
                     </tr>
@@ -334,13 +390,66 @@ export default async function AgreiadoDetailPage({ params }: Props) {
                           </span>
                         </td>
                         <td style={S.td}>
-                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
-                            {pago.solvencias_anuales
-                              .sort((a, b) => a.anio_correspondiente - b.anio_correspondiente)
-                              .map((s) => (
-                                <AnioTag key={s.anio_correspondiente} anio={s.anio_correspondiente} tipo="solvente" />
-                              ))}
-                          </div>
+                          {(!pago.tipo_pago || pago.tipo_pago === 'solvencia') && (
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                              {pago.solvencias_anuales && pago.solvencias_anuales.length > 0 ? (
+                                pago.solvencias_anuales
+                                  .sort((a, b) => a.anio_correspondiente - b.anio_correspondiente)
+                                  .map((s) => (
+                                    <AnioTag key={s.anio_correspondiente} anio={s.anio_correspondiente} tipo="solvente" />
+                                  ))
+                              ) : (
+                                <span style={{ fontSize: 12, color: '#64748b', fontStyle: 'italic' }}>Solvencia</span>
+                              )}
+                            </div>
+                          )}
+                          {pago.tipo_pago === 'inscripcion' && (
+                            <span style={{
+                              display: 'inline-block',
+                              padding: '2px 8px',
+                              borderRadius: 6,
+                              fontSize: 11.5,
+                              fontWeight: 750,
+                              background: '#f3e8ff',
+                              color: '#6b21a8'
+                            }}>
+                              Inscripción
+                            </span>
+                          )}
+                          {pago.tipo_pago === 'carnet' && (
+                            <span style={{
+                              display: 'inline-block',
+                              padding: '2px 8px',
+                              borderRadius: 6,
+                              fontSize: 11.5,
+                              fontWeight: 750,
+                              background: '#ddd6fe',
+                              color: '#5b21b6'
+                            }}>
+                              Carnet
+                            </span>
+                          )}
+                          {pago.tipo_pago === 'custodia' && (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                              <span style={{
+                                display: 'inline-block',
+                                padding: '2px 8px',
+                                borderRadius: 6,
+                                fontSize: 11.5,
+                                fontWeight: 750,
+                                background: '#fef3c7',
+                                color: '#92400e',
+                                width: 'fit-content'
+                              }}>
+                                Custodia
+                              </span>
+                              {pago.meses_custodia && pago.meses_custodia.length > 0 && (
+                                <span style={{ fontSize: 11, fontFamily: 'monospace', color: '#64748b' }}>
+                                  Meses: {pago.meses_custodia.sort().map(m => m.split('-')[1]).join(', ')}
+                                </span>
+                              )}
+                            </div>
+                          )}
                         </td>
                       </tr>
                     ))}
@@ -433,6 +542,14 @@ export default async function AgreiadoDetailPage({ params }: Props) {
               </div>
             </div>
           )}
+
+          {/* Expediente / Adjuntos */}
+          <DocumentosViewer
+            nombreCompleto={nombreCompleto}
+            cedula={agremiado.cedula ?? ''}
+            fpv={agremiado.fpv ?? ''}
+            fechaInscripcion={agremiado.fecha_inscripcion ?? ''}
+          />
 
         </div>
       </div>

@@ -66,6 +66,12 @@ export const agreimadoSchema = z.object({
   fecha_inscripcion: z
     .string()
     .regex(/^\d{4}-\d{2}-\d{2}$/, 'Formato de fecha: YYYY-MM-DD'),
+  fecha_recepcion_titulo: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, 'Formato de fecha: YYYY-MM-DD')
+    .optional()
+    .or(z.literal(''))
+    .or(z.null()),
 })
 
 export type AgreimadoInput = z.infer<typeof agreimadoSchema>
@@ -89,9 +95,22 @@ export const pagoSchema = z.object({
     .max(100),
   metodo_pago: z.enum(['transferencia', 'pago_movil', 'efectivo_usd', 'zelle', 'otro']),
   notas: z.string().max(500).optional(),
+  tipo_pago: z.enum(['solvencia', 'inscripcion', 'custodia', 'carnet']),
   anios_correspondientes: z
-    .array(z.number().int().min(2023).max(2099))
-    .min(1, 'Selecciona al menos un año a acreditar'),
+    .array(z.number().int().min(2023).max(2099)),
+  meses_custodia: z
+    .array(z.string()),
+}).refine((data) => {
+  if (data.tipo_pago === 'solvencia') {
+    return data.anios_correspondientes.length > 0
+  }
+  if (data.tipo_pago === 'custodia') {
+    return data.meses_custodia.length > 0
+  }
+  return true
+}, {
+  message: 'Debes seleccionar los períodos correspondientes al tipo de pago',
+  path: ['anios_correspondientes'],
 })
 
 export type PagoInput = z.infer<typeof pagoSchema>

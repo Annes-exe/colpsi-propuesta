@@ -58,6 +58,7 @@ export default function NuevoAgremiadoPage() {
       correo: '',
       telefono: '',
       fecha_inscripcion: new Date().toISOString().split('T')[0],
+      fecha_recepcion_titulo: '',
     },
   })
 
@@ -267,7 +268,7 @@ export default function NuevoAgremiadoPage() {
             </div>
           </div>
 
-          {/* Fila 4: Fecha de Inscripción */}
+          {/* Fila 4: Fecha de Inscripción y Recepción del Título */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
             <div style={{ display: 'flex', flexDirection: 'column' }}>
               <label htmlFor="fecha_inscripcion" style={T.label}>Fecha de Inscripción <span style={{ color: '#ef4444' }}>*</span></label>
@@ -279,6 +280,18 @@ export default function NuevoAgremiadoPage() {
                 {...register('fecha_inscripcion')}
               />
               {errors.fecha_inscripcion && <span style={T.errorText}>{errors.fecha_inscripcion.message}</span>}
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column' }}>
+              <label htmlFor="fecha_recepcion_titulo" style={T.label}>Recepción del Título <span style={{ fontSize: 10, color: '#64748b', textTransform: 'none' }}>(Opcional)</span></label>
+              <input
+                id="fecha_recepcion_titulo"
+                type="date"
+                style={getInputStyle('fecha_recepcion_titulo')}
+                disabled={isPending}
+                {...register('fecha_recepcion_titulo')}
+              />
+              {errors.fecha_recepcion_titulo && <span style={T.errorText}>{errors.fecha_recepcion_titulo.message}</span>}
             </div>
           </div>
 

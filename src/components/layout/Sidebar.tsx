@@ -60,7 +60,56 @@ const navItems = [
       },
     ],
   },
+  {
+    section: 'Administración',
+    items: [
+      {
+        href: '/dashboard/configuracion',
+        label: 'Configuración',
+        badge: 'Desarrollo',
+        icon: (
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <circle cx="12" cy="12" r="3"/>
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+          </svg>
+        ),
+      },
+      {
+        href: '/dashboard/migracion',
+        label: 'Migración',
+        badge: 'Desarrollo',
+        icon: (
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/>
+            <path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/>
+          </svg>
+        ),
+      },
+      {
+        href: '/dashboard/comunicaciones',
+        label: 'Comunicaciones',
+        badge: 'Desarrollo',
+        icon: (
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+          </svg>
+        ),
+      },
+    ],
+  },
 ]
+
+interface NavItemType {
+  href: string
+  label: string
+  badge?: string
+  icon: React.ReactNode
+}
+
+interface NavSectionType {
+  section: string
+  items: NavItemType[]
+}
 
 export function Sidebar() {
   const pathname = usePathname()
@@ -82,17 +131,24 @@ export function Sidebar() {
 
       {/* Navigation */}
       <nav className="sidebar-nav">
-        {navItems.map((section) => (
+        {navItems.map((section: NavSectionType) => (
           <div key={section.section}>
             <div className="nav-section-label">{section.section}</div>
-            {section.items.map((item) => (
+            {section.items.map((item: NavItemType) => (
               <Link
                 key={item.href}
                 href={item.href}
-                className={`nav-item ${pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href)) ? 'active' : ''}`}
+                className={`nav-item ${pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href)) ? 'active' : ''} flex items-center justify-between`}
               >
-                {item.icon}
-                {item.label}
+                <div className="flex items-center gap-2.5">
+                  {item.icon}
+                  <span>{item.label}</span>
+                </div>
+                {item.badge && (
+                  <span className="text-[9px] font-extrabold px-1.5 py-0.5 rounded-md bg-amber-500/10 text-amber-500 uppercase tracking-wide">
+                    {item.badge}
+                  </span>
+                )}
               </Link>
             ))}
           </div>

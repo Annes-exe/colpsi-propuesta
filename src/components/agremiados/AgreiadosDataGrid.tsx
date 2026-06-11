@@ -187,8 +187,15 @@ export function AgreiadosDataGrid() {
                     </span>
                   </td>
                   <td>
-                    <div style={{ fontWeight: 600, color: '#0f172a' }}>
-                      {row.apellidos ?? '—'}, {row.nombres ?? '—'}
+                    <div className="flex items-center gap-2">
+                      <div style={{ fontWeight: 600, color: '#0f172a' }}>
+                        {row.apellidos ?? '—'}, {row.nombres ?? '—'}
+                      </div>
+                      {row.fecha_inscripcion && new Date(row.fecha_inscripcion + 'T00:00:00').getFullYear() >= 2023 ? (
+                        <span className="text-[9px] font-extrabold px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 uppercase tracking-wide">Nuevo</span>
+                      ) : (
+                        <span className="text-[9px] font-extrabold px-1.5 py-0.5 rounded bg-slate-100 text-slate-700 uppercase tracking-wide">Viejo</span>
+                      )}
                     </div>
                   </td>
                   <td style={{ color: '#64748b', fontSize: 13 }}>
